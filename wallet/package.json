@@ -1,0 +1,19 @@
+{
+  "name": "agentleash-hashpack-bundle",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild hashpack.mjs --bundle --format=iife --platform=browser --minify --alias:@hiero-ledger/sdk=./node_modules/@hiero-ledger/sdk/lib/browser.js --define:process.env.NODE_ENV='\"production\"' --define:global=globalThis --outfile=../public/hashpack.js"
+  },
+  "dependencies": {
+    "@hashgraph/hedera-wallet-connect": "^2.1.3",
+    "@hiero-ledger/proto": "^2.32.0",
+    "@hiero-ledger/sdk": "^2.79.0",
+    "@reown/appkit": "^1.8.24",
+    "@reown/appkit-controllers": "^1.8.24",
+    "@reown/walletkit": "^1.6.0",
+    "@walletconnect/modal": "^2.7.0",
+    "esbuild": "^0.28.2",
+    "ethers": "^6.17.0"
+  }
+}
