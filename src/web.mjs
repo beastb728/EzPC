@@ -6,8 +6,8 @@ import { verify } from "./verify.mjs";
 const T = process.env.DASH_TOKEN; const a = app(); a.get("/shop.html", (_, r) => r.redirect("/"));
 // The PC app's pages are one HTML shell with a client-side router: each stage has its own URL, and a refresh on any of
 // them loads the shell, which then restores state from the backend.
-// Two pages: the landing prompt (/) and the build page (/build). Old journey URLs go to the landing page.
-a.get(["/", "/build", "/order"], (_, r) => r.sendFile("index.html", { root: "public" }));
+// The landing prompt (/), the build page (/build), orders, activity and audit. Old journey URLs go to the landing page.
+a.get(["/", "/build", "/order", "/orders", "/activity", "/audit"], (_, r) => r.sendFile("index.html", { root: "public" }));
 a.get(["/requirements", "/approve", "/search", "/results", "/checkout"], (_, r) => r.redirect("/"));
 a.use(express.static("public"));
 const wallet = userWallet(T);
