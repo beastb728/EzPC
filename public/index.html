@@ -1,0 +1,467 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PC Build Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Same system as the technical dashboard: white canvas, hairlines. Colour only reports state: blue = fine, red = fails, amber = needs you. */
+:root{--ink:#0d1017;--ink2:#262a33;--mut:#5f6470;--faint:#8d929c;--bg:#fff;--fog:#f6f7f9;--line:#e5e7eb;--line2:#d3d6dc;
+--ok:#2456e8;--ok-w:#ebf0fe;--no:#d93a2b;--no-w:#fdeeec;--no-i:#ad271b;--ask:#b26f00;--ask-w:#fff5de;--ask-i:#7d4f06;
+--sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+@media(prefers-color-scheme:dark){:root{--ink:#eceef2;--ink2:#d4d7dd;--mut:#a3a8b2;--faint:#7c818b;--bg:#0e1015;--fog:#15181e;--line:#252932;--line2:#323743;
+--ok:#7a9bff;--ok-w:#18213a;--no:#ff7a6c;--no-w:#2d1715;--no-i:#ff9b90;--ask:#f0b44c;--ask-w:#2a2010;--ask-i:#f4c977}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--sans)}
+a{color:var(--ink);text-underline-offset:3px;text-decoration-color:var(--line2)}
+.mono,.lbl{font-family:var(--mono)}.lbl{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint)}.mut{color:var(--mut)}.sm{font-size:13px}
+.bar{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1100px;margin:0 auto;padding:0 16px;height:56px;display:flex;align-items:center;gap:14px}
+.brand{font-weight:600;white-space:nowrap}.tag{font:500 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line2);border-radius:4px;padding:4px 6px;color:var(--mut)}
+.bar a.tech{margin-left:auto;font-size:13px}
+.note{max-width:1100px;margin:0 auto;padding:10px 16px;font-size:12.5px;color:var(--ask-i);background:var(--ask-w);border-bottom:1px solid var(--line)}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px 64px}
+.steps{display:flex;gap:6px;flex-wrap:wrap;padding:18px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.steps span{padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--faint)}.steps span.on{border-color:var(--ink);color:var(--ink)}.steps span.done{border-color:var(--ok);color:var(--ok)}
+section{padding:24px 0;border-bottom:1px solid var(--line)}h2{font-size:18px;font-weight:600;margin:4px 0 12px}h3{font-size:15px;margin:0}
+textarea{width:100%;font:15px/1.5 var(--sans);color:var(--ink);background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:12px;min-height:84px;resize:vertical}
+input[type=number]{font:15px var(--sans);padding:8px 10px;border:1px solid var(--line2);border-radius:6px;background:var(--bg);color:var(--ink);width:160px}
+button{font:500 14px/1 var(--sans);padding:10px 14px;border-radius:6px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer}button:disabled{opacity:.4;cursor:default}
+button.ghost{background:transparent;color:var(--ink);border-color:var(--line2)}button.pick{background:transparent;color:var(--ink);border-color:var(--line2)}button.pick.sel{border-color:var(--ok);color:var(--ok);background:var(--ok-w)}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--ok);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}.err{color:var(--no-i);font-size:13px;margin-top:8px;overflow-wrap:anywhere}.err:empty{display:none}
+.q{border:1px solid color-mix(in srgb,var(--ask) 40%,transparent);background:var(--ask-w);border-radius:8px;padding:12px 14px;margin-top:10px}.q p{margin:0 0 4px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.chip{font-size:12.5px;border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--mut)}
+.builds{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.card{border:1px solid var(--line2);border-radius:10px;padding:16px;min-width:0}.card.sel{border-color:var(--ok);box-shadow:0 0 0 1px var(--ok)}
+.total{font:500 24px/1.2 var(--mono);margin:8px 0 2px}.charge{font-size:12.5px;color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}td,th{padding:6px 4px;border-top:1px solid var(--line);text-align:left;vertical-align:top}th{font-weight:500;color:var(--mut)}td.n{text-align:right;font-family:var(--mono);white-space:nowrap}
+.v-likely{color:var(--ok)}.v-borderline{color:var(--ask)}.v-unlikely{color:var(--no-i)}
+details{margin-top:10px;font-size:13px}summary{cursor:pointer;color:var(--mut)}ul.checks{margin:6px 0 0;padding-left:18px}ul.checks li.bad{color:var(--no-i)}
+.box{border:1px solid var(--line2);border-radius:10px;padding:14px 16px;margin-top:10px}.box.ok{border-color:var(--ok);background:var(--ok-w)}
+.demo{display:inline-block;font:500 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;border-radius:4px;padding:4px 6px;background:var(--ask-w);color:var(--ask-i);border:1px solid color-mix(in srgb,var(--ask) 40%,transparent)}
+ul.why{margin:6px 0 0;padding-left:18px;font-size:13px}ul.why.trade li{color:var(--mut)}
+.rating{font-size:13px;margin-top:4px}.rev{border-top:1px solid var(--line);padding:6px 0;font-size:13px}
+select{font:15px var(--sans);padding:8px 10px;border:1px solid var(--line2);border-radius:6px;background:var(--bg);color:var(--ink)}
+.log{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-top:12px;max-height:280px;overflow:auto;font-size:13px;background:var(--fog)}.log:empty{display:none}
+.log div{padding:3px 0;border-bottom:1px solid var(--line)}.log div:last-child{border:0}.log .good{color:var(--ok)}.log .bad{color:var(--no-i)}.log .pause{color:var(--ask-i)}.log .t{font-family:var(--mono);color:var(--faint);font-size:11px;margin-right:8px}
+.done-note{color:var(--ok);font-size:13.5px}
+.steps a,.steps span{padding:5px 10px;border:1px solid var(--line);border-radius:999px;color:var(--faint);text-decoration:none}
+.steps a{color:var(--mut)}.steps a:hover{border-color:var(--line2)}.steps .on{border-color:var(--ink);color:var(--ink)}.steps .done{border-color:var(--ok);color:var(--ok)}
+.head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:22px 0 4px}.head h1{font-size:22px;font-weight:600;margin:0}
+.back{font-size:13px;color:var(--mut);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:6px 10px}.back:hover{border-color:var(--line2);color:var(--ink)}
+.lead{color:var(--mut);margin:6px 0 18px;max-width:760px}
+.primary{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:20px 0 8px;padding-top:16px;border-top:1px solid var(--line)}
+.primary button{padding:12px 18px;font-size:15px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px}
+.field{border:1px solid var(--line);border-radius:8px;padding:10px 12px}.field.need{border-color:var(--ask);background:var(--ask-w)}
+.field label{display:block;font-size:12px;color:var(--mut);margin-bottom:6px}.field select,.field input{width:100%}
+.field .hint{font-size:12px;color:var(--ask-i);margin-top:6px}
+.stage{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line)}.stage:last-child{border:0}
+.dot2{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--line2);display:grid;place-items:center;font-size:12px;margin-top:1px}
+.stage.done .dot2{border-color:var(--ok);background:var(--ok);color:var(--bg)}.stage.now .dot2{border-color:var(--ask);animation:pulse 1.2s infinite}.stage.bad .dot2{border-color:var(--no);background:var(--no);color:var(--bg)}
+@keyframes pulse{50%{opacity:.4}}@media(prefers-reduced-motion:reduce){.stage.now .dot2{animation:none}}
+.stage b{font-weight:500}.stage .sm{margin-top:2px}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;font-size:13px}.kv span:nth-child(odd){color:var(--mut)}
+.fail{border:1px solid color-mix(in srgb,var(--no) 45%,transparent);background:var(--no-w);border-radius:10px;padding:14px 16px;margin-top:12px}
+.empty{color:var(--mut);padding:24px 0}
+.specs{font-size:13px;margin:8px 0 0;padding-left:0;list-style:none}.specs li{padding:2px 0}.specs span{color:var(--mut);display:inline-block;min-width:62px}
+.price-old{text-decoration:line-through;color:var(--faint);font-size:15px;margin-left:8px}
+input[type=text]{font:15px var(--sans);padding:8px 10px;border:1px solid var(--line2);border-radius:6px;background:var(--bg);color:var(--ink)}
+.top{max-width:1180px;margin:0 auto;padding:0 20px;height:64px;display:flex;align-items:center;gap:12px}
+.top .brand{font-weight:600;font-size:17px;text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:8px}
+.top .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.top .who{font-size:13px;color:var(--ok)}
+.link{background:none;border:0;color:var(--mut);padding:6px 8px;font-size:13px;text-decoration:underline;text-underline-offset:3px}
+.hero{max-width:860px;margin:0 auto;padding:56px 20px 40px;text-align:center}
+.eyebrow{font:500 11.5px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ok)}
+.hero h1{font-size:clamp(34px,6vw,60px);line-height:1.04;letter-spacing:-.025em;margin:16px 0 18px;font-weight:600}
+.hero p.sub{color:var(--mut);font-size:17px;margin:0 auto 30px;max-width:560px}
+.promptbox{border:1px solid var(--line2);border-radius:18px;padding:16px;background:var(--bg);box-shadow:0 8px 30px color-mix(in srgb,var(--ink) 8%,transparent);text-align:left}
+.promptbox textarea{border:0;padding:4px;min-height:96px;font-size:17px;background:transparent}.promptbox textarea:focus-visible{outline:0}
+.promptbox .row{justify-content:flex-end;margin-top:6px}.promptbox button{border-radius:999px;padding:12px 20px}
+.examples{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:18px}.examples button{background:var(--fog);color:var(--ink2);border:1px solid var(--line);border-radius:999px;font-size:13px;padding:8px 12px;font-weight:400}
+.fine{font-size:12.5px;color:var(--faint);margin-top:22px}
+.layout{max-width:1180px;margin:0 auto;padding:18px 20px 64px;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:22px}@media(max-width:900px){.layout{grid-template-columns:1fr}}
+.panel{border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px;background:var(--bg)}
+.panel h2{font-size:16px;margin:0 0 8px}
+.side .panel{position:sticky;top:12px}
+.amount{font:500 22px/1.2 var(--mono)}.meter{height:6px;background:var(--fog);border-radius:9px;overflow:hidden;margin:8px 0}.meter i{display:block;height:100%;background:var(--ok)}
+.checklist{list-style:none;padding:0;margin:8px 0 0;font-size:14px}.checklist li{padding:5px 0;display:flex;gap:10px;align-items:baseline}.checklist .ic{width:16px;flex:none;text-align:center}
+.checklist .done .ic{color:var(--ok)}.checklist .now .ic{color:var(--ask)}.checklist .bad .ic{color:var(--no)}.checklist .todo{color:var(--faint)}
+.tag2{display:inline-block;font:500 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;border-radius:4px;padding:3px 6px;background:var(--ask-w);color:var(--ask-i)}
+.relaxed{margin:8px 0 0;padding:8px 10px;border-radius:8px;background:var(--ask-w);color:var(--ask-i);font-size:12.5px}.relaxed ul{margin:4px 0 0;padding-left:16px}
+dialog{border:1px solid var(--line2);border-radius:16px;padding:0;max-width:560px;width:calc(100% - 32px);background:var(--bg);color:var(--ink)}dialog::backdrop{background:rgb(0 0 0 / .45)}
+.dlg{padding:20px}.dlg h2{margin:0 0 4px;font-size:19px}.dlg .x{float:right;background:none;border:0;color:var(--mut);font-size:20px;padding:2px 6px}
+.democard{margin:14px 0;border-radius:14px;padding:16px 18px;color:#fff;background:linear-gradient(135deg,#2a3550,#3c4f86);font-family:var(--mono);position:relative}
+.democard .num{font-size:18px;letter-spacing:.12em;margin:18px 0 10px}.democard .lb{font-size:10px;letter-spacing:.14em;opacity:.75}.democard .stamp{position:absolute;top:12px;right:14px;font-size:11px;border:1px solid #fff9;border-radius:4px;padding:2px 6px}
+.textbtn{background:none;border:0;color:var(--ok);padding:0;font-size:13px;text-decoration:underline;text-underline-offset:3px}
+</style></head><body>
+<script>
+// PC Build Agent MVP: a landing page with the prompt and login (/), and a build page (/build) where you connect a wallet,
+// approve one API allowance, and the agent runs and shows three PCs. Checkout and confirmation open in a dialog.
+// The browser keeps only your words and the IDs it was given; payment, approval and order state always come from the backend.
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const usd = (u) => `${(Number(u) / 1e6).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const json = async (url, body) => { const r = await fetch(url, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw Object.assign(new Error(j.error ?? `HTTP ${r.status}`), { status: r.status, body: j }); return j; };
+const HS = "https://hashscan.io/testnet/transaction/";
+const txLink = (t) => !t ? "-" : /^SIM/.test(t) ? `<span class="mono">${esc(t)}</span> <span class="mut">(simulated)</span>` : /^schedule:/.test(t) ? `<span class="mono">${esc(t)}</span>` : `<a class="mono" href="${HS}${encodeURIComponent(String(t).replace("@", "-").replace(/\.(\d+)$/, "-$1"))}" target="_blank" rel="noopener">${esc(t)}</a>`;
+const EXAMPLES = ["Find me a gaming PC with a 4K monitor, within 4,000 USDC.", "A 1440p gaming PC for GTA 6 at 60 FPS, budget 1,500 USDC.", "Gaming and streaming PC with a keyboard and mouse, new parts only, 2,500 USDC."];
+
+const KEY = "pc-mvp-v1";
+let S = (() => { try { return JSON.parse(localStorage.getItem(KEY)) ?? {}; } catch { return {}; } })();
+S = { text: "", answers: {}, search: null, order: null, quotes: {}, pending: null, ...S };
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
+const reqKey = () => JSON.stringify([S.text.trim(), S.answers]);
+
+let WAL = { mode: "simulated" }, STATUS = null, asset = { symbol: "USDC", decimals: 6 }, hpLoad = null, worldPop = null;
+const units = (u) => `${(Number(u) / 10 ** asset.decimals).toFixed(asset.decimals > 6 ? 4 : 2)} ${asset.symbol}`;
+const isHP = () => WAL.mode === "hashpack";
+const worldLive = () => STATUS?.modes.world === "live";
+const loadHP = () => hpLoad ??= new Promise((ok, no) => { const s = document.createElement("script"); s.src = "/hashpack.js"; s.onload = () => window.HashPack.init(WAL.projectId).then(ok, no); s.onerror = () => no(new Error("couldn't load the HashPack connector")); document.head.appendChild(s); }).catch((e) => { hpLoad = null; throw e; });
+const hpAcct = () => { try { return window.HashPack?.account() ?? null; } catch { return null; } };
+async function hpConnect() { await loadHP(); const a = hpAcct() || await window.HashPack.connect(WAL.projectId); if (a !== WAL.userId) throw new Error(`HashPack is connected to ${a}. Switch it to the demo wallet ${WAL.userId}.`); return a; }
+async function hpSign(body) { const acc = await hpConnect(); const p = await json("/api/wallet/prepare", body); return window.HashPack.signAndExecute(acc, p.transaction); }
+const popWorld = (href) => { if (!worldPop || worldPop.closed) worldPop = window.open("about:blank", "world-verify", "popup,width=460,height=720"); if (!worldPop) return false; if (href) { try { worldPop.opener = null; } catch {} worldPop.location.href = href; } return true; };
+const closeWorld = () => { if (worldPop && !worldPop.closed) worldPop.close(); worldPop = null; };
+let timers = [];
+const later = (f, ms) => timers.push(setTimeout(f, ms));
+
+// ---------- header: login with World ID, reset ----------
+let LOGIN = null;
+async function renderLogin() {
+  const was = LOGIN?.loggedIn; LOGIN = await json("/api/login").catch(() => null); const box = $("login"); if (!box || !LOGIN) return;
+  if (location.pathname === "/build" && LOGIN.loggedIn && !was && $("gLogin")) next();
+  if (LOGIN.loggedIn) { box.innerHTML = `<span class="who">✓ ${LOGIN.mode === "live" ? "World ID verified" : "Logged in (simulated World ID)"}</span><button class="link" id="logout">Log out</button>`; $("logout").onclick = async () => { await json("/api/logout", {}); await renderLogin(); if (location.pathname === "/build") next(); }; return; }
+  if (LOGIN.world) { box.innerHTML = `<span class="sm">Approve in World App: <a href="${esc(LOGIN.world.verificationUriComplete)}" target="_blank" rel="noopener">open</a>, code <b class="mono">${esc(LOGIN.world.userCode)}</b></span>`; later(renderLogin, 2000); return; }
+  closeWorld();
+  box.innerHTML = `${LOGIN.error ? `<span class="sm v-unlikely">${esc(LOGIN.error)}</span>` : ""}<button class="ghost" id="loginBtn">Log in with World ID</button>`;
+  $("loginBtn").onclick = async () => { $("loginBtn").disabled = true; try { if (worldLive()) popWorld(); const l = await json("/api/login/world", {}); if (l.world?.verificationUriComplete) popWorld(l.world.verificationUriComplete); else closeWorld(); } catch (e) { closeWorld(); alert(e.message); } renderLogin(); };
+}
+async function resetDemo() {
+  if (!confirm("Reset the demo? This revokes the allowance, logs out of World ID, and clears searches, orders and reviews records.")) return;
+  try {
+    const st = await json("/api/status").catch(() => null);
+    if (isHP() && st?.wallet?.allowance && st.wallet.allowance !== "0") { await loadHP().catch(() => {}); if (hpAcct() === WAL.userId) await hpSign({ revoke: true }).catch((e) => alert(`Resetting, but the allowance is still set on Hedera (${e.message || e}). Revoke it in HashPack.`)); }
+    await json("/api/reset", { forgetWorld: true });
+  } catch (e) { alert(`Reset failed: ${e.message}`); }
+  try { localStorage.removeItem(KEY); } catch {}
+  location.href = "/";
+}
+const header = () => `<header class="bar"><div class="top"><a class="brand" href="/">⚡ PC Build Agent</a><span class="tag">pre-event prototype</span><div class="right"><span id="login"></span><button class="link" id="reset">Reset demo</button></div></div></header>`;
+
+// ---------- Page 1: prompt and login ----------
+function landing() {
+  document.body.innerHTML = header() + `<main class="hero">
+    <div class="eyebrow">Autonomous PC shopping, under your control</div>
+    <h1>The PC agent that shops for you, and never oversteps.</h1>
+    <p class="sub">Tell it what you play and what you can spend. It pays only for the recommendation data it needs, inside the allowance you approve.</p>
+    <div class="promptbox"><textarea id="prompt" aria-label="Describe your PC" placeholder="${esc(EXAMPLES[0])}">${esc(S.text)}</textarea>
+      <div class="row"><button id="build">Build my PC</button></div></div>
+    <div class="examples">${EXAMPLES.map((e, i) => `<button data-ex="${i}">${esc(e)}</button>`).join("")}</div>
+    <p class="fine">Learning prototype. Demo shops with sample stock; the PC is paid by a simulated card. Only the small recommendation fee is a real (testnet) x402 payment.</p></main>`;
+  $("reset").onclick = resetDemo; renderLogin();
+  const keep = () => { S.text = $("prompt").value; save(); };
+  $("prompt").oninput = keep;
+  document.querySelectorAll("[data-ex]").forEach((b) => b.onclick = () => { $("prompt").value = EXAMPLES[Number(b.dataset.ex)]; keep(); });
+  // A new journey always starts from the login and a fresh wallet connection.
+  $("build").onclick = () => { keep(); if (!S.text.trim()) { $("prompt").focus(); return; } if (S.search?.key !== reqKey()) { S.answers = {}; } S.newJourney = true; S.walletOk = false; save(); location.href = "/build"; };
+}
+
+// ---------- Page 2: wallet, allowance, agent, results ----------
+function chips(q) {
+  const t = q.target;
+  return [q.budgetUnits && `PC budget ${usd(q.budgetUnits)}`, ...q.games.map((g) => g), ...q.workloads, t.resolution && `${t.resolution === "4K" ? (t.renderMode === "native" ? "native 4K" : "4K upscaled") : t.resolution}`, t.fps && `${t.fps} FPS`, q.monitor.needed && `${q.monitor.resolution ?? ""} monitor`, q.peripherals.keyboard && "keyboard", q.peripherals.mouse && "mouse", q.condition === "any" ? "used OK" : "new parts", q.regionText && `deliver to ${q.regionText}`, ...q.other].filter(Boolean).map((c) => `<span class="chip">${esc(c)}</span>`).join("");
+}
+let REQ = null, FEE = null;
+async function build() {
+  if (!S.text.trim()) { location.href = "/"; return; }
+  document.body.innerHTML = header() + `<div class="layout"><main>
+      <div class="panel"><div class="lbl">Your request</div><p style="margin:6px 0">${esc(S.text)}</p><div id="chips" class="chips"></div><div id="assumed" class="sm mut"></div><div id="clarify"></div><p class="sm"><a href="/">Edit request</a></p></div>
+      <div class="panel" id="authPanel" hidden></div>
+      <div class="panel" id="agentPanel" hidden><h2>Agent</h2><ul class="checklist" id="steps"></ul><div id="agentMsg"></div>
+        <details id="receipt" style="margin-top:10px"><summary>Payment receipt and audit trail</summary><div id="receiptBody" class="sm" style="margin-top:8px"></div></details></div>
+      <div id="orderBanner"></div><div id="results"></div>
+    </main><aside class="side"><div class="panel" id="allowance"><div class="lbl">API spending allowance</div><p class="sm mut">Loading…</p></div></aside></div>
+    <dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>`;
+  $("reset").onclick = resetDemo; renderLogin();
+  try { REQ = await json("/api/pc/requirements", { text: S.text, answers: S.answers }); } catch (e) { $("clarify").innerHTML = `<div class="fail">${esc(e.message)}</div>`; return; }
+  $("chips").innerHTML = chips(REQ.requirements);
+  if (!REQ.ready) {
+    $("clarify").innerHTML = `<div class="q"><p>${esc(REQ.questions[0].question)}</p><div class="row"><input type="number" min="1" id="budgetIn" placeholder="e.g. 3000"><button id="budgetBtn">Continue</button></div></div>`;
+    $("budgetBtn").onclick = () => { const v = Number($("budgetIn").value); if (v > 0) { S.answers.budgetUsdc = v; save(); build(); } };
+    return;
+  }
+  $("assumed").textContent = REQ.requirements.assumptions?.length ? `Assumed: ${REQ.requirements.assumptions.join("; ")}.` : "";
+  if (isHP()) await loadHP().catch(() => {});
+  // Drop a wallet session left over from an earlier visit, so connecting is a real step of this journey.
+  if (S.newJourney) { if (isHP() && hpAcct()) await window.HashPack.disconnect()?.catch?.(() => {}); S.newJourney = false; S.walletOk = false; save(); }
+  LOGIN = await json("/api/login").catch(() => null);
+  await refreshAllowance();
+  if (S.order) renderOrderBanner();
+  next();
+}
+// Decide what happens next from the backend's state: authorise, run, or show results.
+async function next() {
+  timers.forEach(clearTimeout); timers = [];
+  FEE = await json("/api/pc/fee").catch(() => null); if (FEE?.asset) asset = FEE.asset;
+  renderAllowance();
+  if (!FEE?.api) return showAuth(`<div class="fail">The recommendation API isn't listed right now (run <span class="mono">npm run seed:arkiv</span>), so the agent can't search.</div>`);
+  // An existing search for this exact request is resumed, never repeated.
+  if (S.search?.key === reqKey()) return follow(S.search.rid);
+  // In order: World ID login, then the wallet, then the allowance. The agent starts only when all three are done.
+  if (!LOGIN?.loggedIn || !walletOk()) return showAuth();
+  const l = FEE.limit;
+  if (!l) return showAuth();
+  if (BigInt(l.remaining) < BigInt(FEE.api.fee)) return showAuth(`<div class="q"><p>Your allowance has ${units(l.remaining)} left, less than the ${units(FEE.api.fee)} fee. Approve a new allowance to continue.</p></div>`);
+  return start(1);
+}
+async function refreshAllowance() { FEE = await json("/api/pc/fee").catch(() => FEE); if (FEE?.asset) asset = FEE.asset; renderAllowance(); }
+function renderAllowance() {
+  const l = FEE?.limit, a = FEE?.api, box = $("allowance"); if (!box) return;
+  if (!l) { box.innerHTML = `<div class="lbl">API spending allowance</div><p class="sm mut">${S.search ? "No active allowance (revoked or used up). Results you already paid for stay here; a new search asks for a new allowance." : "None approved yet."} It pays only for recommendation requests${a ? ` (${units(a.fee)} each)` : ""}, never for the PC.</p>`; return; }
+  const pct = Math.min(100, Number(l.spent) * 100 / Number(l.maxTotal));
+  box.innerHTML = `<div class="lbl">API spending allowance</div><div class="amount">${units(l.remaining)}</div><div class="sm mut">left of ${units(l.maxTotal)}</div><div class="meter"><i style="width:${pct}%"></i></div>
+    <div class="sm">${units(l.spent)} spent on recommendations</div><div class="row"><button class="ghost" id="revoke" style="padding:7px 11px;font-size:13px">Revoke</button></div><p class="err" id="revErr"></p>`;
+  $("revoke").onclick = async () => {
+    $("revoke").disabled = true;
+    try { const walletTx = isHP() ? await hpSign({ revoke: true }) : undefined; await json(`/api/intents/${l.intentId}/revoke`, { walletTx }); }
+    catch (e) { $("revErr").textContent = e.message || String(e); }
+    next();
+  };
+}
+// The three steps before the agent may spend: log in with World ID, connect the wallet, approve one allowance.
+// The backend checks each one (World session, allowance on Hedera); the page only shows where you are.
+const walletOk = () => !!S.walletOk && (!isHP() || hpAcct() === WAL.userId);
+function showAuth(note = "") {
+  const p = $("authPanel"); p.hidden = false; $("agentPanel").hidden = !S.search;
+  const a = FEE.api, logged = !!LOGIN?.loggedIn, wal = walletOk(), l = FEE.limit, enough = !!(l && a && BigInt(l.remaining) >= BigInt(a.fee));
+  const step = (n, state, title, body) => `<li class="${state}"><span class="ic">${state === "done" ? "✓" : state === "now" ? "●" : "○"}</span><div style="flex:1;min-width:0"><b>${n}. ${title}</b><div class="sm" style="margin-top:2px">${body}</div></div></li>`;
+  const loginBody = logged ? (LOGIN.mode === "live" ? "World ID verified: a verified human is behind this agent." : "Logged in (World ID is SIMULATED: no credentials configured).")
+    : LOGIN?.world ? `Approve in World App: <a href="${esc(LOGIN.world.verificationUriComplete)}" target="_blank" rel="noopener">open World</a>, code <b class="mono">${esc(LOGIN.world.userCode)}</b>. Waiting…`
+    : `${LOGIN?.error ? `<span class="v-unlikely">${esc(LOGIN.error)}</span><br>` : ""}Proves a verified human is behind the agent.<div class="row"><button id="gLogin">Log in with World ID</button></div>`;
+  const walletBody = wal ? (isHP() ? `HashPack connected: <span class="mono">${esc(hpAcct())}</span>.` : `${WAL.mode === "server" ? "Demo wallet (the server signs)" : "Simulated wallet"} <span class="mono">${esc(STATUS?.userId ?? "")}</span> connected.`)
+    : logged ? `${isHP() ? "Pair HashPack; you'll approve the allowance there." : "Use the demo wallet for this journey."}<div class="row"><button id="gWallet">Connect wallet</button></div>` : "After you log in.";
+  const allowBody = enough ? `${units(l.remaining)} left of ${units(l.maxTotal)}. The agent can start.`
+    : logged && wal ? `The agent pays ${a ? `${units(a.fee)} per recommendation request` : "a small fee per request"} with x402, on its own, until this allowance runs out. It never pays for the PC: your ${usd(REQ.requirements.budgetUnits)} PC budget only picks the options.
+      <div class="row"><label class="sm" for="allowIn">API spending allowance (${esc(asset.symbol)})</label><input type="number" id="allowIn" min="0.01" step="0.01" value="0.20"><button id="approve">Approve in wallet</button></div><div id="authStatus" class="sm"></div>`
+    : "Covers the agent's paid recommendation requests.";
+  p.innerHTML = `<h2>Before the agent starts</h2>${note}<ul class="checklist">
+    ${step(1, logged ? "done" : "now", "Log in with World ID", loginBody)}
+    ${step(2, wal ? "done" : logged ? "now" : "todo", "Connect your wallet", walletBody)}
+    ${step(3, enough ? "done" : logged && wal ? "now" : "todo", "Approve the API spending allowance", allowBody)}</ul><p class="err" id="authErr"></p>`;
+  if ($("gLogin")) $("gLogin").onclick = async () => {
+    $("gLogin").disabled = true; $("authErr").textContent = "";
+    try { if (worldLive()) popWorld(); LOGIN = await json("/api/login/world", {}); if (LOGIN.world?.verificationUriComplete) popWorld(LOGIN.world.verificationUriComplete); else closeWorld(); }
+    catch (e) { closeWorld(); $("authErr").textContent = e.message; }
+    renderLogin(); next();
+  };
+  if (LOGIN?.world && !logged) later(async () => { LOGIN = await json("/api/login").catch(() => LOGIN); if (LOGIN?.loggedIn || LOGIN?.error) { closeWorld(); renderLogin(); } next(); }, 2000);
+  if ($("gWallet")) $("gWallet").onclick = async () => {
+    $("gWallet").disabled = true; $("authErr").textContent = "";
+    try { if (isHP()) await hpConnect(); S.walletOk = true; save(); } catch (e) { $("authErr").textContent = e.message || String(e); }
+    next();
+  };
+  if ($("approve")) { $("approve").onclick = () => approveAllowance(); if (S.pending) approveAllowance(S.pending); } // resume an approval in progress before a refresh
+}
+async function approveAllowance(resume) {
+  const st = (t) => { $("authStatus").innerHTML = t; }; $("authErr").textContent = ""; $("approve").disabled = true;
+  try {
+    let id = resume;
+    if (!id) { const v = Number($("allowIn").value); if (!(v > 0)) throw new Error("enter an allowance"); id = (await json("/api/pc/limit", { maxTotal: String(Math.round(v * 10 ** asset.decimals)) })).approvalId; S.pending = id; save(); }
+    for (let i = 0; ; i++) {
+      const ap = (await json("/api/approvals")).find((x) => x.id === id);
+      if (!ap) { S.pending = null; save(); if (resume) { $("approve").disabled = false; return; } throw new Error("the approval expired; try again"); }
+      if (!worldLive() || ap.verified) break;
+      if (!ap.world || ap.world.error) {
+        if (ap.world?.error) st(`<span class="v-unlikely">${esc(ap.world.error)}</span>`);
+        if (i > 0 && ap.world?.error) throw new Error("World ID didn't verify");
+        popWorld(); const w = await json(`/api/approvals/${id}/world`, {}); if (w.world?.verificationUriComplete) popWorld(w.world.verificationUriComplete);
+      }
+      st(`Verify with World ID: approve in World App${ap.world?.userCode ? `, code <b class="mono">${esc(ap.world.userCode)}</b>` : ""}…`);
+      if (i > 200) throw new Error("World ID timed out"); await sleep(2000);
+    }
+    closeWorld(); st(isHP() ? "Approve the allowance in HashPack…" : "Setting the allowance…");
+    const r = await json(`/api/approvals/${id}/approve`, { walletTx: isHP() ? await hpSign({ approvalId: id }) : undefined });
+    if (r.state !== "active") throw new Error(r.error ?? `allowance ${r.state}`);
+    S.pending = null; save(); st(`<span style="color:var(--ok)">✓ Allowance confirmed on ${r.approvedBy?.includes("SIMULATED") ? "the simulated ledger" : "Hedera"}.</span>`);
+    $("authPanel").hidden = true; next();
+  } catch (e) { $("authErr").textContent = e.message || String(e); $("approve").disabled = false; if (/expired|didn't verify|timed out/.test(e.message)) { S.pending = null; save(); } }
+}
+// Start (or retry) the paid search. Same request + attempt = same search ID on the server, so this never pays twice.
+async function start(attempt) {
+  $("authPanel").hidden = true;
+  try { const r = await json("/api/pc/recommend", { text: S.text, answers: S.answers, attempt }); S.search = { rid: r.requestId, attempt: r.attempt ?? attempt, key: reqKey() }; S.order = null; save(); follow(r.requestId); }
+  catch (e) { $("agentPanel").hidden = false; $("agentMsg").innerHTML = `<div class="fail">${esc(e.message)}</div>`; if (/limit|allowance/i.test(e.message)) showAuth(); }
+}
+async function follow(rid) {
+  $("agentPanel").hidden = false;
+  let x; try { x = await json(`/api/pc/search/${rid}`); }
+  catch (e) { if (e.status === 404) { S.search = null; save(); return next(); } $("agentMsg").innerHTML = `<p class="sm mut">Reconnecting… (${esc(e.message)})</p>`; return later(() => follow(rid), 3000); }
+  const st = x.status, res = x.result, paid = st === "paid", bad = ["blocked", "failed", "denied", "expired", "error"].includes(st);
+  const item = (state, text) => `<li class="${state}"><span class="ic">${state === "done" ? "✓" : state === "now" ? "●" : state === "bad" ? "✕" : "○"}</span><span>${text}</span></li>`;
+  const payState = paid ? "done" : bad ? "bad" : st === "starting" || st === "requested" ? "now" : "now";
+  $("steps").innerHTML = item("done", "Reading your request") +
+    item(payState, paid ? `Paid ${units(x.amount)} to RigAdvisor for recommendations (x402) · ${txLink(x.txId)}` : bad ? `Recommendation fee not paid (${esc(st)})` : st === "awaiting_approval" ? "Waiting for your signature on the fee" : st === "unknown" ? "Checking the payment outcome on Hedera (it won't be retried)" : `Paying ${FEE?.api ? units(FEE.api.fee) : "the fee"} for recommendations (x402)…`) +
+    item(res ? "done" : paid ? "now" : "todo", res ? `Read ${esc(res.inventory)} listings and seller reviews from Arkiv (free reads)` : "Reading Arkiv listings and seller reviews") +
+    item(res ? "done" : "todo", res ? `Compared ${res.considered} complete packages; picked ${res.packages.length}` : "Comparing complete PCs");
+  $("receiptBody").innerHTML = `<div class="kv"><span>Search ID</span><span class="mono">${esc(rid)}</span><span>Status</span><span>${esc(st)}</span><span>Fee</span><span>${x.amount ? units(x.amount) : "-"}</span><span>Pulled from allowance</span><span>${txLink(x.pullTx)}</span><span>x402 payment</span><span>${txLink(x.txId)}</span>${x.refundTx ? `<span>Refund</span><span>${txLink(x.refundTx)}</span>` : ""}</div>
+    <table><tr><th>Time</th><th>Guard event (HCS)</th><th>Detail</th></tr>${(x.events ?? []).map((v) => `<tr><td class="mono">${new Date(v.at).toLocaleTimeString()}</td><td>${esc(v.event)}</td><td>${esc(v.detail)}</td></tr>`).join("")}</table>`;
+  if (st === "awaiting_approval") await stepup(rid);
+  if (paid) { $("agentMsg").innerHTML = ""; refreshAllowance(); return results(rid, res); }
+  if (bad) {
+    const limitIssue = /per-purchase limit|budget would be exceeded|no active intent|allowance|revoked/i.test(x.reason ?? "");
+    $("agentMsg").innerHTML = `<div class="fail"><b>The agent couldn't pay for recommendations.</b><div class="sm">${esc(x.reason ?? "")}${x.refundTx ? " Money that reached the Guard was refunded." : x.pullTx ? "" : " Nothing was taken from your allowance."}</div></div>
+      <div class="row">${limitIssue ? "" : `<button id="retry">Try again</button>`}</div>`;
+    if (limitIssue) { FEE = await json("/api/pc/fee").catch(() => FEE); showAuth(`<div class="q"><p>${/revoked|allowance pull/i.test(x.reason ?? "") ? "The allowance was revoked in your wallet." : "Your allowance doesn't cover the fee."} Approve a new allowance and the agent will try again.</p></div>`); S.search = { ...S.search, key: null }; save(); }
+    else $("retry").onclick = () => start((S.search?.attempt ?? 1) + 1);
+    return;
+  }
+  later(() => follow(rid), 1500);
+}
+let stepKey = "";
+async function stepup(rid) {
+  const ap = (await json("/api/approvals").catch(() => [])).find((a) => a.kind === "stepup" && a.ref === rid); if (!ap) return;
+  const needWorld = worldLive() && !ap.verified, key = `${ap.id}|${needWorld}|${ap.world?.userCode ?? ""}|${ap.world?.error ?? ""}`; if (key === stepKey) return; stepKey = key;
+  $("agentMsg").innerHTML = `<div class="q"><p>The Guard paused this fee (${esc(ap.purchase?.reason ?? "")}) and needs your signature.</p>${needWorld ? (ap.world && !ap.world.error ? `<p class="sm">Approve in World App, code <b class="mono">${esc(ap.world.userCode)}</b>.</p>` : `<button id="suWorld">Verify with World ID</button>`) : `<div class="row"><button id="suSign">Sign ${units(ap.amount)}</button><button class="ghost" id="suDeny">Deny</button></div>`}</div>`;
+  if ($("suWorld")) $("suWorld").onclick = async () => { popWorld(); const w = await json(`/api/approvals/${ap.id}/world`, {}).catch(() => ({})); if (w.world?.verificationUriComplete) popWorld(w.world.verificationUriComplete); stepKey = ""; };
+  if ($("suSign")) $("suSign").onclick = async () => { $("suSign").disabled = true; try { closeWorld(); await json(`/api/approvals/${ap.id}/approve`, { walletTx: isHP() ? await hpSign({ approvalId: ap.id }) : undefined }); } catch (e) { $("agentMsg").insertAdjacentHTML("beforeend", `<p class="err">${esc(e.message || e)}</p>`); $("suSign").disabled = false; } };
+  if ($("suDeny")) $("suDeny").onclick = () => json(`/api/approvals/${ap.id}/deny`, {}).catch(() => {});
+}
+const line = (l) => `${esc(l.brand)} ${esc(l.model)}`;
+const ratingText = (r) => r?.average != null ? `★ ${r.average.toFixed(1)} · ${r.count} review${r.count === 1 ? "" : "s"}${r.verified ? ` · ${r.verified} World ID verified` : ""}` : esc(r?.label ?? "No recent reviews");
+let RES = null;
+function results(rid, res) {
+  RES = { rid, res };
+  if (!res.packages.length) { $("results").innerHTML = `<div class="fail"><b>No PC could be put together.</b> ${esc(res.constraint ?? "")}</div>`; return; }
+  $("results").innerHTML = `<h2 style="font-size:20px;margin:18px 0 6px">Three complete PCs</h2><p class="sm mut">${esc(res.sample)} Each is one package from one seller. ${res.perfSource ? `Performance is a ${esc(res.perfSource.split(":")[0].toLowerCase())}, not a benchmark.` : ""}</p>
+    ${res.shortfall ? `<div class="q"><p>${esc(res.shortfall)}</p></div>` : ""}
+    <div class="builds">${res.packages.map((b) => {
+      const c = Object.fromEntries(b.components.map((l) => [l.category, l]));
+      return `<div class="card"><div class="lbl">${esc(b.label)}</div><h3 style="margin:6px 0 2px">${esc(b.shopName)}</h3><div class="rating">${ratingText(b.sellerRating)}</div>
+        <div class="total">${usd(b.cost.total)}</div><div class="charge">incl. ${b.cost.delivery === "0" ? "free delivery" : `${usd(b.cost.delivery)} delivery`} · sample estimate: <span class="v-${b.perf.verdict}">${esc(b.perf.verdict)}</span></div>
+        ${b.relaxed?.length ? `<div class="relaxed"><b>Closest alternative: relaxes</b><ul>${b.relaxed.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
+        <ul class="specs"><li><span>CPU</span>${line(c.cpu)}</li><li><span>GPU</span>${line(c.gpu)}</li><li><span>RAM</span>${line(c.ram)}</li><li><span>Storage</span>${line(c.storage)}</li>${b.peripherals.map((l) => `<li><span>${esc(l.category)}</span>${line(l)}</li>`).join("")}</ul>
+        <p class="sm" style="margin:8px 0 0">${esc(b.why[1] ?? b.why[0])}</p>
+        <details><summary>Why it fits, and compromises</summary><ul class="why">${b.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul><ul class="why trade">${b.tradeoffs.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></details>
+        <details><summary>All components</summary><table>${[...b.components, ...b.peripherals].map((l) => `<tr><td>${line(l)}${l.condition !== "new" ? ` <span class="v-borderline">(${esc(l.condition)}, ${l.warrantyMonths} mo)</span>` : ""}</td><td class="mut">${esc(l.category)}</td><td class="n">${usd(l.unitPrice)}</td></tr>`).join("")}</table><ul class="checks">${b.checks.map((k) => `<li class="${k.ok ? "" : "bad"}">${k.ok ? "✓" : "✗"} ${esc(k.check)}: ${esc(k.detail)}</li>`).join("")}</ul></details>
+        <details data-reviews="${esc(b.sellerId)}"><summary>Seller reviews</summary><div class="sm mut">Loading…</div></details>
+        <div class="row"><button data-pick="${esc(b.id)}">Select this PC</button></div></div>`;
+    }).join("")}</div>`;
+  document.querySelectorAll("[data-pick]").forEach((el) => el.onclick = () => checkout(el.dataset.pick));
+  document.querySelectorAll("details[data-reviews]").forEach((d) => d.addEventListener("toggle", () => d.open && loadReviews(d), { once: true }));
+}
+// Badges say exactly what was checked: World ID verified (a real World check on a delivered order), a simulated check,
+// or a team sample that nobody verified.
+const badge = (r) => r.human === "world-verified" ? `<span class="demo" style="background:var(--ok-w);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)">✓ World ID verified</span> <span class="sm mut">demo order</span>`
+  : r.kind === "sample" ? `<span class="tag2">Sample review</span> <span class="sm mut">seeded by the team, not World ID verified</span>`
+  : `<span class="demo">demo order</span> <span class="sm mut">simulated World check</span>`;
+async function loadReviews(d) {
+  try {
+    const j = await json(`/api/pc/reviews/${encodeURIComponent(d.dataset.reviews)}`);
+    d.querySelector("div").outerHTML = `<div class="sm">${esc(j.rating.label)}.</div>` + j.reviews.map((r) => `<div class="rev">${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)} ${badge(r)}<div>${esc(r.text)}</div><div class="sm mut">${new Date(r.createdAt * 1000).toLocaleDateString()} · expires ${new Date(r.expiresAt).toLocaleDateString()}</div></div>`).join("");
+  } catch (e) { d.querySelector("div").textContent = e.message; }
+}
+
+// ---------- checkout dialog and confirmation ----------
+const dlg = (html) => { $("dlgBody").innerHTML = `<button class="x" id="dlgX" aria-label="Close">×</button>${html}`; $("dlgX").onclick = () => $("dlg").close(); if (!$("dlg").open) $("dlg").showModal(); };
+async function checkout(pid) {
+  const b = RES.res.packages.find((k) => k.id === pid); if (!b) return;
+  const existing = (await json(`/api/pc/orders?search=${RES.rid}`).catch(() => [])).find((o) => o.packageId === pid);
+  if (existing) { S.order = existing.orderId; save(); location.href = `/order?id=${encodeURIComponent(existing.orderId)}`; return; }
+  const quote = () => { const q = S.quotes?.[pid]; return q && q.expiresAt > Date.now() ? q : null; };
+  const render = (log = "") => {
+    const q = quote();
+    dlg(`<h2>Checkout</h2><p class="sm mut">${esc(b.label)} from ${esc(b.shopName)} · ${ratingText(b.sellerRating)}</p>
+      <table>${[...b.components, ...b.peripherals].map((l) => `<tr><td>${line(l)}</td><td class="n">${usd(l.unitPrice)}</td></tr>`).join("")}<tr><td class="mut">Delivery (simulated)</td><td class="n">${b.cost.delivery === "0" ? "free" : usd(b.cost.delivery)}</td></tr></table>
+      <div class="total" style="margin-top:12px">${q ? `${usd(q.price)}<span class="price-old">${usd(b.cost.total)}</span>` : usd(b.cost.total)}</div>
+      <p class="sm" style="margin:2px 0">${q ? "Price your agent negotiated with the shop's agent; the shop confirms it at checkout." : `<button class="textbtn" id="nego">Let the agent negotiate the price</button>`}</p><div class="log">${log}</div>
+      <div class="democard"><span class="stamp">DEMO</span><div class="lb">DEMO CREDIT CARD</div><div class="num">4242 4242 4242 4242</div><div class="lb">NOT A REAL CARD · NO CHARGE</div></div>
+      <div class="row"><button id="pay">Pay with credit card — demo</button></div>
+      <p class="sm mut">Simulated: no card details are collected, nothing is charged, no crypto is used and no real order is placed. The recommendation fee you already paid isn't part of this price.</p><p class="err" id="payErr"></p>`);
+    if ($("nego")) $("nego").onclick = async () => {
+      $("nego").disabled = true; $("nego").textContent = "Negotiating with the shop's agent…";
+      try { const n = await json("/api/pc/negotiate", { requestId: RES.rid, packageId: pid }); if (n.quote) { S.quotes = { ...(S.quotes ?? {}), [pid]: { id: n.quote.id, price: n.quote.price, expiresAt: n.quote.expiresAt } }; save(); } render(n.events.map((e) => `<div class="${esc(e.kind)}">${esc(e.text)}</div>`).join("")); }
+      catch (e) { render(`<div class="bad">${esc(e.message)}</div>`); }
+    };
+    $("pay").onclick = async () => {
+      $("pay").disabled = true;
+      try { const o = await json("/api/pc/checkout", { requestId: RES.rid, packageId: pid, quoteId: quote()?.id }); S.order = o.orderId; save(); location.href = `/order?id=${encodeURIComponent(o.orderId)}`; }
+      catch (e) { if (/quote|negotiated/i.test(e.message)) { delete S.quotes[pid]; save(); } $("payErr").textContent = e.message; $("pay").disabled = false; }
+    };
+  };
+  render();
+}
+async function renderOrderBanner() {
+  if (!S.order || !$("orderBanner")) return;
+  const o = await json(`/api/pc/orders/${encodeURIComponent(S.order)}`).catch((e) => (e.status === 404 ? null : undefined));
+  if (o === null) { S.order = null; save(); $("orderBanner").innerHTML = ""; return; }
+  if (!o) return;
+  $("orderBanner").innerHTML = `<div class="panel" style="border-color:var(--ok)"><span class="demo">demo order</span> <b>${esc(o.orderId)}</b>: ${esc(o.package.label)} from ${esc(o.shopName)}, ${usd(o.total)} · ${o.state === "delivered" ? "delivered (simulated)" : "confirmed"} <button class="textbtn" id="openOrder">Open</button></div>`;
+  $("openOrder").onclick = () => { location.href = `/order?id=${encodeURIComponent(o.orderId)}`; };
+}
+// ---------- Page 3: the order (after "Pay with credit card — demo") ----------
+// Everything here is read from the backend: the order, the paid recommendation it came from, and the audit trail.
+async function orderPage() {
+  const id = new URLSearchParams(location.search).get("id") ?? S.order;
+  if (!id) { location.href = S.text ? "/build" : "/"; return; }
+  document.body.innerHTML = header() + `<div class="layout"><main id="orderMain"><p class="empty">Loading your order…</p></main><aside class="side"><div class="panel" id="allowance"><div class="lbl">API spending allowance</div><p class="sm mut">Loading…</p></div></aside></div>`;
+  $("reset").onclick = resetDemo; renderLogin(); refreshAllowance();
+  let o; try { o = await json(`/api/pc/orders/${encodeURIComponent(id)}`); }
+  catch (e) { $("orderMain").innerHTML = `<div class="fail">${e.status === 404 ? "There's no demo order with that reference (Reset demo clears orders)." : esc(e.message)}</div><div class="row"><a class="back" href="/">Start a new search</a></div>`; if (S.order === id && e.status === 404) { S.order = null; save(); } return; }
+  S.order = o.orderId; save();
+  const search = await json(`/api/pc/recommend/${o.requestId}`).catch(() => null);
+  const pkg = search?.result?.packages?.find((p) => p.id === o.packageId);
+  const lines = pkg ? [...pkg.components, ...pkg.peripherals] : [];
+  const days = pkg ? Math.max(...lines.map((l) => l.deliveryDays)) : null, placed = new Date(o.createdAt);
+  const eta = days ? new Date(placed.getTime() + days * 86400_000).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : null;
+  const saved = BigInt(o.listTotal) - BigInt(o.total);
+  $("orderMain").innerHTML = `
+    <div class="head" style="padding-top:4px"><h1>Your PC order</h1><span class="demo">demo order</span></div>
+    <p class="lead">Order <b class="mono">${esc(o.orderId)}</b> · placed ${placed.toLocaleString()} · ${o.state === "delivered" ? "<b>Delivered (simulated)</b>" : "<b>Confirmed</b>, awaiting delivery"}</p>
+    <div class="panel"><div class="lbl">PC package</div><h2 style="margin:6px 0 2px">${esc(o.package.label)} from ${esc(o.shopName)}</h2><div class="rating">${pkg ? ratingText(pkg.sellerRating) : ""}</div>
+      ${lines.length ? `<table>${lines.map((l) => `<tr><td>${line(l)}${l.condition !== "new" ? ` <span class="v-borderline">(${esc(l.condition)}, ${l.warrantyMonths} mo)</span>` : ""}</td><td class="mut">${esc(l.category)}</td><td class="n">${usd(l.unitPrice)}</td></tr>`).join("")}</table>` : `<p class="sm">${esc(o.package.components.join(", "))}</p>`}
+      ${pkg?.perf ? `<p class="sm mut" style="margin-top:8px">Sample estimate: <span class="v-${pkg.perf.verdict}">${esc(pkg.perf.verdict)}</span> to reach ${esc(pkg.perf.target)}. Not a benchmark.</p>` : ""}</div>
+    <div class="panel"><div class="lbl">Delivery</div><div class="kv" style="margin-top:6px"><span>From</span><span>${esc(o.shopName)} (demo shop)</span><span>Estimated</span><span>${eta ? `${esc(eta)} (about ${days} days)` : "-"}</span><span>Status</span><span>${o.state === "delivered" ? `Delivered ${new Date(o.deliveredAt).toLocaleString()} (simulated)` : "On its way (simulated)"}</span></div>
+      ${o.state === "delivered" ? "" : `<div class="row"><button class="ghost" id="deliver">Mark delivered (simulated)</button></div>`}</div>
+    <div class="panel"><div class="lbl">Payment</div><table>
+      ${saved > 0n ? `<tr><td>List price</td><td class="n">${usd(o.listTotal)}</td></tr><tr><td>Negotiated by your agent</td><td class="n">−${usd(saved)}</td></tr>` : ""}
+      <tr><td>Card charged · ···· 4242 <span class="mut">(simulated, nothing charged)</span></td><td class="n">${usd(o.total)}</td></tr>
+      <tr><td><b>Total charged</b></td><td class="n"><b>${usd(o.total)}</b></td></tr></table></div>
+    <div class="panel"><div class="lbl">x402 recommendation-data payments</div>
+      ${search?.status === "paid" ? `<p style="margin:8px 0 0">${units(search.amount)} to RigAdvisor · ${txLink(search.txId)}</p><p class="sm mut">Paid by your agent from the API allowance, separately from the PC. ${search.pullTx ? `Pulled from the allowance in ${txLink(search.pullTx)}.` : ""}</p>` : `<p class="sm mut">Not available.</p>`}</div>
+    <div class="panel"><div class="lbl">Review the seller (optional)</div><div id="after" style="margin-top:6px"></div><p class="err" id="revErr"></p></div>
+    <details class="panel" id="audit"><summary>Audit trail</summary><div id="auditBody" class="sm" style="margin-top:8px">Loading…</div></details>
+    <div class="row"><a class="back" href="/build">Back to the options</a><button id="auditBtn">View audit trail</button></div>`;
+  if ($("deliver")) $("deliver").onclick = async () => { $("deliver").disabled = true; await json(`/api/pc/orders/${o.orderId}/deliver`, {}).catch(() => {}); orderPage(); };
+  if (o.state === "delivered") reviewBox(o); else $("after").innerHTML = `<p class="sm mut">Available once the order is delivered.</p>`;
+  const loadAudit = async () => {
+    const [a, b] = await Promise.all([json(`/api/pc/audit/${encodeURIComponent(o.requestId)}`).catch(() => []), json(`/api/pc/audit/${encodeURIComponent(o.orderId)}`).catch(() => [])]);
+    const all = [...a, ...b].sort((x, y) => x.at - y.at);
+    $("auditBody").innerHTML = `<p class="mut">Every Guard decision is also written to the public HCS topic${STATUS?.modes.audit === "live" ? "" : " (simulated here)"}. No card, name or address details are recorded.</p><table><tr><th>Time</th><th>Event</th><th>Detail</th><th>HCS</th></tr>${all.map((v) => `<tr><td class="mono">${new Date(v.at).toLocaleTimeString()}</td><td>${esc(v.event)}</td><td>${esc(v.detail)}</td><td class="mono">${esc(String(v.reference ?? "").slice(0, 22))}</td></tr>`).join("") || `<tr><td colspan="4" class="mut">No entries.</td></tr>`}</table>`;
+  };
+  $("audit").addEventListener("toggle", () => $("audit").open && loadAudit());
+  $("auditBtn").onclick = () => { $("audit").open = true; $("audit").scrollIntoView({ behavior: "smooth" }); };
+}
+async function reviewBox(o) {
+  if (!$("after")) return;
+  let v; try { v = await json(`/api/pc/orders/${o.orderId}/review`); } catch (e) { $("revErr").textContent = e.message; return; }
+  const intro = `<p class="sm mut">Optional. Labelled <span class="demo">demo-order review</span> because the purchase was simulated; World ID proves a verified human wrote it, not that it's true. Public on Arkiv for 90 days; one review per order.</p>`;
+  if (v.review) { $("after").innerHTML = `<div class="box ok">Your ${v.review.rating}/5 review of ${esc(o.shopName)} is published${v.worldMode === "live" ? " with the ✓ World ID verified badge" : " (simulated World check)"}, until ${new Date(v.review.expiresAt).toLocaleDateString()}.</div>`; return; }
+  if (!v.verified) {
+    $("after").innerHTML = `<h3>Review the seller</h3>${intro}${v.world ? `<p class="sm">Approve in World App: <a href="${esc(v.world.verificationUriComplete)}" target="_blank" rel="noopener">open</a>, code <b class="mono">${esc(v.world.userCode)}</b>…</p>` : ""}${v.error ? `<p class="err">${esc(v.error)}</p>` : ""}<div class="row"><button id="revWorld">${v.world ? "Start again" : "Verify with World ID to review"}</button></div>`;
+    $("revWorld").onclick = async () => { try { if (worldLive()) popWorld(); const w = await json(`/api/pc/orders/${o.orderId}/review/world`, {}); if (w.world?.verificationUriComplete) popWorld(w.world.verificationUriComplete); else closeWorld(); reviewBox(o); } catch (e) { closeWorld(); $("revErr").textContent = e.message; } };
+    if (v.world) setTimeout(() => $("after") && reviewBox(o), 2500);
+    return;
+  }
+  closeWorld();
+  $("after").innerHTML = `<h3>Review the seller</h3>${intro}<div class="row"><select id="stars">${[5, 4, 3, 2, 1].map((n) => `<option value="${n}">${n} star${n > 1 ? "s" : ""}</option>`).join("")}</select></div><textarea id="revText" maxlength="280" placeholder="How did ${esc(o.shopName)} do? Public: no names, emails, links or phone numbers."></textarea><div class="row"><button id="revBtn">Publish review</button></div>`;
+  $("revBtn").onclick = async () => { $("revBtn").disabled = true; $("revErr").textContent = ""; try { await json(`/api/pc/orders/${o.orderId}/review`, { rating: Number($("stars").value), text: $("revText").value }); reviewBox(o); } catch (e) { $("revErr").textContent = e.message; $("revBtn").disabled = false; } };
+}
+
+// ---------- start ----------
+(async () => {
+  try { [WAL, STATUS] = await Promise.all([json("/api/wallet"), json("/api/status")]); asset = STATUS.asset ?? asset; }
+  catch (e) { document.body.innerHTML = `<div class="hero"><div class="fail">The servers aren't responding. Run <span class="mono">npm start</span>, then reload. (${esc(e.message)})</div></div>`; return; }
+  if (location.pathname === "/build") build(); else if (location.pathname === "/order") orderPage(); else landing();
+})();
+</script></body></html>
