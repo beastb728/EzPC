@@ -2,13 +2,22 @@
 // so it works on localhost, and World requires a fresh approval for every attempt.
 // World only proves a person approved; the Guard records what they approved.
 import { createRemoteJWKSet, jwtVerify } from "jose";
-const issuer = () => process.env.WORLD_ISSUER || "https://sandbox.auth.world.org";
+// WORLD_USE=production switches to the real World ID service with the PROD_WORLD_* credentials; anything else uses
+// the sandbox (WORLD_*). Remove the line to switch back: nothing else changes.
+const prod = () => process.env.WORLD_USE === "production";
+const cfg = () => prod()
+  ? { issuer: process.env.PROD_WORLD_ISSUER || "https://auth.world.org", id: process.env.PROD_WORLD_CLIENT_ID, secret: process.env.PROD_WORLD_CLIENT_SECRET ?? "", auth: process.env.PROD_WORLD_CLIENT_AUTH || process.env.WORLD_CLIENT_AUTH || "post" }
+  : { issuer: process.env.WORLD_ISSUER || "https://sandbox.auth.world.org", id: process.env.WORLD_CLIENT_ID, secret: process.env.WORLD_CLIENT_SECRET ?? "", auth: process.env.WORLD_CLIENT_AUTH || "post" };
+const issuer = () => cfg().issuer.replace(/\/+$/, "");
+// The World service in use, e.g. "https://auth.world.org". The Guard keeps a separate linked World ID per service.
+export const worldIssuer = issuer;
 let disco;
 const discovery = async () => (disco ??= await (await fetch(`${issuer()}/.well-known/openid-configuration`)).json());
 // Registered as client_secret_post or client_secret_basic in World's portal; this must match.
 function clientAuth(body) {
-  const id = process.env.WORLD_CLIENT_ID, secret = process.env.WORLD_CLIENT_SECRET ?? "";
-  if ((process.env.WORLD_CLIENT_AUTH || "post") === "basic") return { headers: { authorization: `Basic ${Buffer.from(`${encodeURIComponent(id)}:${encodeURIComponent(secret)}`).toString("base64")}` }, body };
+  const { id, secret, auth } = cfg();
+  if (!id) throw new Error(prod() ? "WORLD_USE=production needs PROD_WORLD_CLIENT_ID and PROD_WORLD_CLIENT_SECRET" : "WORLD_CLIENT_ID is not set");
+  if (auth === "basic") return { headers: { authorization: `Basic ${Buffer.from(`${encodeURIComponent(id)}:${encodeURIComponent(secret)}`).toString("base64")}` }, body };
   return { headers: {}, body: { ...body, client_id: id, client_secret: secret } };
 }
 const form = async (url, body) => {
@@ -19,7 +28,7 @@ const form = async (url, body) => {
 
 export async function startDevice() {
   const d = await discovery();
-  const r = await form(d.device_authorization_endpoint, { client_id: process.env.WORLD_CLIENT_ID, scope: "openid" });
+  const r = await form(d.device_authorization_endpoint, { client_id: cfg().id, scope: "openid" });
   if (r.status !== 200 || !r.body.device_code) throw new Error(`World device request failed: ${r.body.error ?? r.status}`);
   const b = r.body;
   return { deviceCode: b.device_code, userCode: b.user_code, verificationUri: b.verification_uri, verificationUriComplete: b.verification_uri_complete ?? b.verification_uri, interval: Number(b.interval ?? 5), expiresAt: Date.now() + Number(b.expires_in ?? 600) * 1000, startedAt: Math.floor(Date.now() / 1000), nextPollAt: 0 };
@@ -36,7 +45,7 @@ export async function pollDevice(s) {
   if (err === "expired_token") return { state: "expired" };
   if (!r.body.id_token) return { state: "failed", error: err ?? `token endpoint ${r.status}` };
   try {
-    const { payload } = await jwtVerify(r.body.id_token, createRemoteJWKSet(new URL(d.jwks_uri)), { issuer: d.issuer, audience: process.env.WORLD_CLIENT_ID });
+    const { payload } = await jwtVerify(r.body.id_token, createRemoteJWKSet(new URL(d.jwks_uri)), { issuer: d.issuer, audience: cfg().id });
     if (!payload.auth_time || payload.auth_time < s.startedAt - 5) return { state: "failed", error: "authentication is not fresh" };
     // Optional: require a verification level (e.g. https://world.org/oidc/acr/orb). Off unless WORLD_REQUIRED_ACR is set.
     const need = process.env.WORLD_REQUIRED_ACR;

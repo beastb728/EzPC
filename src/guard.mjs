@@ -10,7 +10,7 @@ import { createClientHederaSigner } from "@x402/hedera";
 import { app, listen, modes, NETWORK, PORTS, requireToken } from "./common.mjs";
 import { getListing, search, APPROVED_OWNERS } from "./directory.mjs";
 import { byKey } from "./catalog.mjs";
-import { startDevice, pollDevice } from "./world.mjs";
+import { startDevice, pollDevice, worldIssuer } from "./world.mjs";
 import { ledger } from "./ledger.mjs";
 import { intentCheck } from "./intent-check.mjs";
 import { ASSET, toUnits, fromUnits } from "./asset.mjs";
@@ -249,7 +249,12 @@ const setting = (k) => one("SELECT v FROM settings WHERE k=?", k)?.v ?? null;
 // One World check covers later step-up approvals for a short while, like a bank app after a face scan.
 // Intents always need a fresh check; a different World ID can never reach this, and revoke or reset ends it.
 const SESSION_MS = Number(process.env.WORLD_SESSION_MINUTES ?? 15) * 60_000;
-const worldSession = () => { const v = setting("world_session"); const x = v && JSON.parse(v); return x && x.who === setting("world_owner") && Date.now() - x.at < SESSION_MS ? x : null; };
+// The account's linked World ID for the World service in use (sandbox or production), stored per service. An owner
+// saved before this was per service ("world_owner") still counts when it came from the same service.
+const ownerKey = () => `world_owner:${worldIssuer()}`;
+const worldOwner = () => setting(ownerKey()) ?? (setting("world_owner")?.startsWith(`${worldIssuer()}|`) ? setting("world_owner") : null);
+const linkOwner = (who) => db.prepare("INSERT OR REPLACE INTO settings VALUES(?,?)").run(ownerKey(), who);
+const worldSession = () => { const v = setting("world_session"); const x = v && JSON.parse(v); return x && x.who === worldOwner() && Date.now() - x.at < SESSION_MS ? x : null; };
 // The user's negotiation switch. On: agents may haggle over A2A and buy with a quote. Off: list prices only.
 const negotiateOn = () => setting("negotiate") !== "off";
 const endWorldSession = () => db.prepare("DELETE FROM settings WHERE k='world_session'").run();
@@ -262,9 +267,9 @@ async function pollWorld(ap) {
   const keep = (extra) => db.prepare("UPDATE approvals SET login=? WHERE id=?").run(JSON.stringify({ ...w, ...extra }), ap.id);
   if (r.state === "pending") return keep({ interval: r.slowDown ? w.interval + 5 : w.interval, nextPollAt: Date.now() + (r.slowDown ? w.interval + 5 : w.interval) * 1000 });
   if (r.state !== "verified") { keep({ deviceCode: null, error: r.state === "failed" ? r.error : `World approval ${r.state}` }); return audit("world_failed", ap.ref, r.error ?? r.state); }
-  const who = `${r.iss}|${r.sub}`, owner = setting("world_owner");
+  const who = `${r.iss}|${r.sub}`, owner = worldOwner();
   if (owner && owner !== who) { keep({ deviceCode: null, error: "a different World ID approved; it must be the account owner" }); return audit("world_failed", ap.ref, "different World ID from the account owner"); }
-  if (!owner) { db.prepare("INSERT INTO settings VALUES('world_owner',?)").run(who); await audit("world_linked", ap.ref, `account linked to World ID ${r.sub.slice(0, 10)}…`); }
+  if (!owner) { linkOwner(who); await audit("world_linked", ap.ref, `account linked to World ID ${r.sub.slice(0, 10)}…`); }
   keep({ deviceCode: null, verifiedAt: Date.now(), acr: r.acr });
   db.prepare("UPDATE approvals SET verified=1 WHERE id=?").run(ap.id);
   db.prepare("INSERT OR REPLACE INTO settings VALUES('world_session',?)").run(JSON.stringify({ who, at: Date.now() }));
@@ -384,7 +389,7 @@ const loginState = () => { const v = setting("login"); return v ? JSON.parse(v) 
 const saveLogin = (x) => db.prepare("INSERT OR REPLACE INTO settings VALUES('login',?)").run(JSON.stringify(x));
 const loginView = () => {
   const s = m.world === "live" ? worldSession() : (setting("sim_login") ? { at: Number(setting("sim_login")) } : null), l = loginState();
-  return { mode: m.world, loggedIn: !!s, verifiedAt: s?.at ?? null, endsAt: s ? s.at + SESSION_MS : null, who: setting("world_owner") ? `World ID …${setting("world_owner").split("|").pop().slice(-6)}` : null,
+  return { mode: m.world, loggedIn: !!s, verifiedAt: s?.at ?? null, endsAt: s ? s.at + SESSION_MS : null, who: worldOwner() ? `World ID …${worldOwner().split("|").pop().slice(-6)}` : null,
     world: l?.deviceCode ? { userCode: l.userCode, verificationUri: l.verificationUri, verificationUriComplete: l.verificationUriComplete, expiresAt: l.expiresAt } : null, error: l?.error ?? null };
 };
 async function pollLogin() {
@@ -392,9 +397,9 @@ async function pollLogin() {
   const r = await pollDevice(l).catch((e) => ({ state: "pending", error: e.message }));
   if (r.state === "pending") return saveLogin({ ...l, nextPollAt: Date.now() + (l.interval + (r.slowDown ? 5 : 0)) * 1000 });
   if (r.state !== "verified") { saveLogin({ ...l, deviceCode: null, error: r.state === "failed" ? r.error : `World login ${r.state}` }); return audit("world_failed", "login", r.error ?? r.state); }
-  const who = `${r.iss}|${r.sub}`, owner = setting("world_owner");
+  const who = `${r.iss}|${r.sub}`, owner = worldOwner();
   if (owner && owner !== who) { saveLogin({ ...l, deviceCode: null, error: "a different World ID; log in with the account owner's World ID" }); return audit("world_failed", "login", "different World ID from the account owner"); }
-  if (!owner) { db.prepare("INSERT INTO settings VALUES('world_owner',?)").run(who); await audit("world_linked", "login", `account linked to World ID ${r.sub.slice(0, 10)}…`); }
+  if (!owner) { linkOwner(who); await audit("world_linked", "login", `account linked to World ID ${r.sub.slice(0, 10)}…`); }
   saveLogin({ deviceCode: null });
   db.prepare("INSERT OR REPLACE INTO settings VALUES('world_session',?)").run(JSON.stringify({ who, at: Date.now() }));
   await audit("world_verified", "login", `logged in with a fresh World ID check${r.acr ? `, ${r.acr}` : ""}`);
@@ -438,8 +443,8 @@ async function sweep() {
   if (m.world === "live") for (const ap of db.prepare("SELECT * FROM approvals WHERE state='pending' AND verified=0 AND login IS NOT NULL").all()) if (JSON.parse(ap.login).deviceCode) await pollWorld(ap).catch(() => {});
 }
 // Demo PC orders (simulated card checkout) and World-verified seller reviews. No payment code is reachable from these routes.
-const orders = ordersRoutes(a, { db, audit, token: requireToken(DASH), worldLive: m.world === "live", setting, h, purchase: row });
+const orders = ordersRoutes(a, { db, audit, token: requireToken(DASH), worldLive: m.world === "live", setting, worldOwner, h, purchase: row });
 // Reset keeps the linked World ID owner, like a real account would, unless forgetWorld is set (the PC app's Reset demo):
 // then the next World ID to approve becomes the owner.
-a.post("/reset", requireToken(DASH), (q, r) => { orders.reset(); if (q.body?.forgetWorld === true) { db.exec("DELETE FROM settings WHERE k='world_owner'"); audit("world_unlinked", "reset", "demo reset: the linked World ID was forgotten"); } db.exec("DELETE FROM purchases; DELETE FROM approvals; DELETE FROM audit; DELETE FROM intents; DELETE FROM sim_schedules; DELETE FROM settings WHERE k IN ('world_session','login','sim_login'); UPDATE sim_wallet SET allowance='0', balance='1000000000';"); r.json({ ok: true }); });
+a.post("/reset", requireToken(DASH), (q, r) => { orders.reset(); if (q.body?.forgetWorld === true) { db.exec("DELETE FROM settings WHERE k='world_owner' OR k LIKE 'world_owner:%'"); audit("world_unlinked", "reset", "demo reset: the linked World ID was forgotten"); } db.exec("DELETE FROM purchases; DELETE FROM approvals; DELETE FROM audit; DELETE FROM intents; DELETE FROM sim_schedules; DELETE FROM settings WHERE k IN ('world_session','login','sim_login'); UPDATE sim_wallet SET allowance='0', balance='1000000000';"); r.json({ ok: true }); });
 listen(a, PORTS.guard, "guard");

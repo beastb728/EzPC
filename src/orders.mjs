@@ -15,7 +15,7 @@ import { url } from "./common.mjs";
 const CHECK_MS = 10 * 60_000; // a World check for a review is good for 10 minutes
 const CONTACT = /@|https?:\/\/|www\.|\d[\d\s-]{8,}\d/i; // reviews are public: no emails, links or phone numbers
 
-export function ordersRoutes(a, { db, audit, token, worldLive, setting, h, purchase }) {
+export function ordersRoutes(a, { db, audit, token, worldLive, setting, worldOwner, h, purchase }) {
   db.exec(`CREATE TABLE IF NOT EXISTS orders(id TEXT PRIMARY KEY, order_key TEXT UNIQUE, request_id TEXT, package_id TEXT, seller_id TEXT, shop_name TEXT, total TEXT, package TEXT, payment TEXT, state TEXT, created_at INTEGER, delivered_at INTEGER);
 CREATE TABLE IF NOT EXISTS review_checks(order_id TEXT PRIMARY KEY, login TEXT, who TEXT, verified_at INTEGER, error TEXT);
 CREATE TABLE IF NOT EXISTS reviews(order_id TEXT PRIMARY KEY, seller_id TEXT, reviewer TEXT, rating INTEGER, state TEXT, entity_key TEXT, expires_at INTEGER, created_at INTEGER);`);
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS reviews(order_id TEXT PRIMARY KEY, seller_id TEXT, re
     const keep = (x, err = null) => db.prepare("UPDATE review_checks SET login=?, error=? WHERE order_id=?").run(JSON.stringify({ ...w, ...x }), err, id);
     if (r.state === "pending") return keep({ nextPollAt: Date.now() + (w.interval + (r.slowDown ? 5 : 0)) * 1000 });
     if (r.state !== "verified") return keep({ deviceCode: null }, r.state === "failed" ? r.error : `World check ${r.state}`);
-    const who = `${r.iss}|${r.sub}`, owner = setting("world_owner");
+    const who = `${r.iss}|${r.sub}`, owner = worldOwner();
     if (owner && owner !== who) return keep({ deviceCode: null }, "a different World ID verified; the review must come from the account that placed the order");
     db.prepare("UPDATE review_checks SET login=?, who=?, verified_at=?, error=NULL WHERE order_id=?").run(JSON.stringify({ ...w, deviceCode: null }), who, Date.now(), id);
     await audit("review_world_verified", id, `fresh World ID check: verified human, for a demo-order review${r.acr ? `, ${r.acr}` : ""}`);

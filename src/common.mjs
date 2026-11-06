@@ -14,7 +14,7 @@ export const modes = () => process.env.PROTOTYPE_MODES ? JSON.parse(process.env.
   arkiv: process.env.ARKIV_PRIVATE_KEY && process.env.APPROVED_OWNERS ? "live" : "simulated",
   // Gaming-PC demo shops: live once `npm run setup:shops` wrote each shop's Arkiv wallet (all shops are paid to SELLER_ACCOUNT_ID).
   shops: process.env.SELLER_ACCOUNT_ID && ["VOLTFORGE", "PIXELBAZAAR", "RIGROOM"].every((s) => process.env[`SHOP_${s}_ARKIV_ADDRESS`]) ? "live" : "simulated",
-  world: process.env.WORLD_CLIENT_ID ? "live" : "simulated",
+  world: (process.env.WORLD_USE === "production" ? process.env.PROD_WORLD_CLIENT_ID : process.env.WORLD_CLIENT_ID) ? "live" : "simulated",
   audit: process.env.HCS_TOPIC_ID && process.env.GUARD_PRIVATE_KEY ? "live" : "simulated",
   data: process.env.DATA_GOV_IN_API_KEY ? "live" : "sample",
   model: process.env.LLM_BASE_URL ? "live" : "rules",
