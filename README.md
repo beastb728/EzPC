@@ -45,7 +45,7 @@ sequenceDiagram
 1. **Allowance.** In HashPack the user approves a USDC allowance with the Guard's account as spender (`AccountAllowanceApproveTransaction`). Hedera enforces the cap, and revoking it is one transaction.
 2. **Pull, then pay.** x402 on Hedera needs the paying account to sign, so it can't pay straight from an allowance. For each fee the Guard pulls exactly that amount from the user (an approved transfer; Hedera refuses it if the allowance is too low or revoked), waits until the Mirror Node shows the funds, then pays the seller through x402. If the payment fails, the Guard refunds the user.
 3. **Audit.** Every decision (paid, blocked, refunded, allowance approved or revoked, order placed, review published) is a message on the HCS topic. `npm run verify` checks from public data alone that every USDC leaving the Guard has an audit entry.
-4. **Step-ups.** A fee above the user's "ask me" amount becomes a **Scheduled Transaction** for the exact amount; nothing moves until the user signs it in HashPack, and it expires on its own.
+4. **Step-ups.** A fee above the user's "ask me" amount pauses the agent and becomes a **Scheduled Transaction** for the exact amount. Nothing moves until the user passes a fresh **World ID** check and signs it in HashPack; it expires on its own.
 
 ### The Guard's checks, in order (fail closed)
 
@@ -69,10 +69,42 @@ Duplicate request → active allowance → listing found on Arkiv, published by 
 | **No Solidity**: everything uses the JS SDK (`@hiero-ledger/sdk`) and native services | |
 
 ### Arkiv
-Shops publish their parts and prices to Arkiv from their own wallets; the recommendation API publishes its listing there too, so the agent discovers it without a hard-coded URL. Shop reviews are stored on Arkiv with a 90-day expiry, so ratings reflect recent buyers. Only listings from approved owners are trusted (`src/directory.mjs`, `src/pc-directory.mjs`, `src/reviews.mjs`).
+Shops publish their parts and prices to Arkiv (Rabdi testnet) from their own wallets, and the recommendation API publishes its listing there too, so the agent discovers it without a hard-coded URL. An offer only counts if the shop's own wallet signed it. Offers expire at the end of their offer period unless the shop renews them; reviews expire after 90 days, so ratings reflect recent buyers (`src/pc-directory.mjs`, `src/reviews.mjs`, `src/directory.mjs`).
 
-### World
-**Write a review** starts a World ID check (OIDC device flow). The server only accepts a review with a fresh, verified check for that order, one review per order (`src/orders.mjs`, `src/world.mjs`). Without Google sign-in configured, approving the allowance also needs World ID.
+| Entity type | Writer wallet | Live |
+|---|---|---|
+| `ethpc.pc-offers.v1`, `ethpc.pc-sellers.v1` | pixelbazaar `0x00d4a9331add38bb2e0d7e32da9f687bf05a8d32`, voltforge `0xc0020afb29fae96b31614c25d6d3ac23eb1fb5ff`, rigroom `0xf995383aba3b72151501ad4b49b475afa7390f1d` | 44 offers, 3 profiles |
+| `ethpc.pc-reviews.v1`, `ethpc.listings.usdc` | `0x28ad3aa463b31584fac2dbee6958ab5dde79de6c` | 31 reviews (seeded samples), 12 listings |
+
+**Run a query yourself (no keys):** graphics cards in stock, still on offer, at or under 800 USDC, signed by the shops' own wallets:
+
+```bash
+npm install
+node arkiv/query.mjs            # or: node arkiv/query.mjs cpu 300
+```
+
+```js
+pub.select({ $key: true, $owner: true, sellerId: true, brand: true, model: true, priceUnits: true, stock: true })
+  .from(Offers)   // ethpc.pc-offers.v1
+  .where(q.and(q.eq("category", "gpu"), q.gt("stock", u64(0)), q.gt("validUntil", u64(now)), q.lte("priceUnits", u64(800_000000))))
+  .fetch();
+```
+
+Details for judges: [arkiv/schema.md](arkiv/schema.md) · [arkiv/how-you-use-arkiv.md](arkiv/how-you-use-arkiv.md) · [arkiv/why-arkiv.md](arkiv/why-arkiv.md) · [arkiv/reach.md](arkiv/reach.md) · [arkiv/friction.md](arkiv/friction.md)
+
+### World (World ID Agent Pass, `auth.world.org`)
+World ID is the **human checkpoint for the agent**. Two actions need a fresh World ID check, verified on the server:
+
+| Protected action | When | What happens |
+|---|---|---|
+| **The agent pays above your "ask me" amount** (a step-up) | You set "Ask me with World ID for any fee above…" when approving the allowance. Any fee above it pauses the agent | **Verify with World ID** → approve in World App → the Guard verifies the token → you sign that exact payment in HashPack → the agent resumes. A Google account alone can never pass this |
+| **Writing a shop review** | After an order is delivered | **Write a review** → approve in World App → the Guard verifies → the review is published to Arkiv. One per order |
+
+**How it's verified (server-side, `src/world.mjs`):** OIDC Device Authorization Grant against World IdP (no callback needed on localhost). The ID token's signature is checked against World's published keys, plus issuer, audience (our client ID) and freshness (`auth_time` must be after the check started). The first World ID becomes the account owner; a different World ID is refused. The client secret never leaves the Guard, and nothing from the browser counts as approval. A World check covers further step-ups for 15 minutes (`WORLD_SESSION_MINUTES`). Optional: set `WORLD_REQUIRED_ACR=https://world.org/oidc/acr/orb` to accept only Orb-verified people; remove it to accept any level.
+
+**When it fails, nothing happens:** if the person denies in World App, the check expires, the token is stale, it's a different World ID, or (with `WORLD_REQUIRED_ACR`) the level is too low, the payment isn't made or the review isn't published. **Deny** on a paused payment stops it with nothing taken from the allowance. Tested in `test/world.test.mjs` against a local fake issuer that signs real tokens (W1–W16).
+
+**Demo both paths:** set the "ask me" amount to 0.01 USDC so the 0.05 fee pauses; verify with World ID and sign (success), then on the next search press **Deny** (nothing paid). Integration debrief: [world/feedback.md](world/feedback.md).
 
 ## Architecture
 
@@ -110,7 +142,7 @@ npm start                 # then open http://localhost:4000
 - **AI model:** `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, used for reading requests, the intent check and the negotiating agents.
 
 ```bash
-npm test      # 121 tests, simulated mode; stop a running copy first (same ports)
+npm test      # 123 tests, simulated mode; stop a running copy first (same ports)
 npm run verify    # live: checks the Guard's payments against the HCS log from public data only
 ```
 
@@ -154,5 +186,12 @@ The earlier general tools (`request_intent`, `get_intent`, `find_sellers`, `buy`
 - If the Guard's key were stolen, at most the remaining allowance is at risk. The cap, revoke and the audit log are the protection.
 - An agreed shop price is valid for 5 minutes.
 
+## How AI was used
+- **Building it:** the team used Claude Code (Anthropic) as a pair programmer for code, tests, UI, and documentation, including these README and `arkiv/` files. The team chose the design and reviewed, ran and tested the results.
+- **Inside the product:** an AI model (`openai/gpt-oss-120b` via Groq, set by `LLM_MODEL`) reads the user's request into structured requirements, scores each purchase against the approved task (the Guard's intent check), and plays the buyer and shop agents in A2A negotiation. Hard limits (allowance, per-fee cap, each shop's lowest price) are enforced in code, never by the model. Without a model configured, simple rules take over.
+
+## License
+[MIT](LICENSE).
+
 ## Project layout
-`src/` services and logic · `public/index.html` the web app · `wallet/` HashPack connector bundle · `test/` 121 tests (`node --test`) · `scripts-*.mjs` setup · `experiments/` live checks.
+`src/` services and logic · `public/index.html` the web app · `wallet/` HashPack connector bundle · `test/` 123 tests (`node --test`) · `scripts-*.mjs` setup · `experiments/` live checks.
