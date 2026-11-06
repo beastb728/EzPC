@@ -8,7 +8,7 @@ const sim = LISTINGS.map((x) => ({ ...x, endpoint: url("sellers", x.endpoint), e
 export const APPROVED_OWNERS = () => (process.env.APPROVED_OWNERS || TRUSTED_OWNER).toLowerCase().split(",").map((x) => x.trim());
 const approved = (l) => APPROVED_OWNERS().includes(l.owner.toLowerCase());
 // Prices are stored in the asset's smallest unit, so USDC listings live in their own schema and HBAR ones stay untouched.
-const SCHEMA = `agentleash-prototype-do-not-submit.listings${isHbar ? "" : `.${ASSET.key}`}`;
+const SCHEMA = `ethpc.listings${isHbar ? "" : `.${ASSET.key}`}`;
 const BLOCK_MS = 2000; // Rabdi makes a block about every 2 seconds; expiry is stored as a block number.
 async function arkiv(key = process.env.ARKIV_PRIVATE_KEY) {
   const [{ createPublicClient, createWalletClient, ExpirationTime }, { rabdi }, { http }, { privateKeyToAccount }, s, q] = await Promise.all([import("@arkiv-network/sdk"), import("@arkiv-network/sdk/chains"), import("viem"), import("viem/accounts"), import("@arkiv-network/sdk/schema"), import("@arkiv-network/sdk/query")]);

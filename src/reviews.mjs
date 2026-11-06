@@ -12,7 +12,7 @@ import { modes } from "./common.mjs";
 export const REVIEW_DAYS = 90;
 export const KIND = "demo-order"; // purchases are simulated, so every review is labelled a demo-order review
 export const SAMPLE_KIND = "sample"; // seeded by the team (sample-reviews.mjs): not World ID verified, not tied to an order
-const SCHEMA = "agentleash-prototype-do-not-submit.pc-reviews.v1";
+const SCHEMA = "ethpc.pc-reviews.v1";
 const BLOCK_MS = 2000;
 const live = () => modes().arkiv === "live";
 const file = () => process.env.REVIEWS_FILE || "data/demo-reviews.json";

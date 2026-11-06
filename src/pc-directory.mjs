@@ -6,7 +6,7 @@ import { hexToString, stringToHex } from "viem";
 import { modes, url } from "./common.mjs";
 import { OFFERS, SHOPS, offerRecord, shopById, shopRegistry, offerId as mkOfferId } from "./pc-catalog.mjs";
 
-const APP = "agentleash-prototype-do-not-submit";
+const APP = "ethpc";
 const BLOCK_MS = 2000; // Rabdi: about one block every 2 seconds; Arkiv expiry is a block number.
 export const isLive = () => modes().shops === "live";
 const shopEndpoint = (id) => url("sellers", `/shops/${id}`);
