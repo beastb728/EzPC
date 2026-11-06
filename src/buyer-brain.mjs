@@ -6,6 +6,9 @@ import { negotiate, sendOffer } from "./a2a.mjs";
 import { amount, unitOf } from "./a2a-units.mjs";
 
 const MAX_ROUNDS = 4;
+// Structured details on each logged move (who, what, price, words, which AI), for the negotiation window. The text stays as is.
+const BY = () => process.env.LLM_MODEL || "AI model";
+const deal = (r) => ({ who: "seller", act: "deal", price: String(r.quote.price), quoteId: r.quote.id, say: r.message ?? "" });
 const clean = (t) => String(t ?? "").replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
 
 async function askModel({ listing, list, cap, history, sellerSays }) {
@@ -36,12 +39,12 @@ export async function aiNegotiate({ listing, maxPrice, log = () => {}, ask = ask
     for (let round = 1; round <= MAX_ROUNDS; round++) {
       const j = await ask({ listing, list, cap, history, sellerSays });
       const note = clean(j?.message);
-      if (j?.action === "walk") { log(`Walks away from ${listing.name}'s price; it will be the list price${note ? `: "${note}"` : ""}`); return null; }
+      if (j?.action === "walk") { log(`Walks away from ${listing.name}'s price; it will be the list price${note ? `: "${note}"` : ""}`, "info", { who: "buyer", act: "walk", say: note, by: BY() }); return null; }
       if (j?.action === "accept" && counter !== null && counter <= cap) {
-        log(`Accepts ${listing.name}'s ${fmt(counter)}${note ? `: "${note}"` : ""}`);
+        log(`Accepts ${listing.name}'s ${fmt(counter)}${note ? `: "${note}"` : ""}`, "info", { who: "buyer", act: "accept", price: String(counter), say: note, by: BY() });
         const r = await send({ listing, type: "accept", price: String(counter), contextId });
-        if (r?.type === "accept") { log(`Deal: ${listing.name} for ${fmt(r.quote.price)}, quote ${r.quote.id.slice(0, 8)}`, "good"); return r.quote; }
-        log(`${listing.name}'s agent declined: ${r?.reason ?? "no deal"}`); return null;
+        if (r?.type === "accept") { log(`Deal: ${listing.name} for ${fmt(r.quote.price)}, quote ${r.quote.id.slice(0, 8)}`, "good", deal(r)); return r.quote; }
+        log(`${listing.name}'s agent declined: ${r?.reason ?? "no deal"}`, "info", { who: "seller", act: "decline", say: r?.reason }); return null;
       }
       // An offer: clamped to the list price and the cap, and never below the buyer's own previous offer.
       // Wanting to accept a counter above the cap becomes an offer at the cap.
@@ -50,22 +53,22 @@ export async function aiNegotiate({ listing, maxPrice, log = () => {}, ask = ask
       const prev = history.at(-1)?.offer;
       if (prev !== undefined && offer < prev) offer = prev;
       if (offer > cap) offer = cap;
-      log(`Offers ${listing.name} ${fmt(offer)} over A2A (list ${fmt(list)})${note ? `: "${note}"` : ""}`);
+      log(`Offers ${listing.name} ${fmt(offer)} over A2A (list ${fmt(list)})${note ? `: "${note}"` : ""}`, "info", { who: "buyer", act: "offer", price: String(offer), say: note, by: BY() });
       const r = await send({ listing, type: "offer", price: String(offer), message: note, contextId });
-      if (r?.type === "accept") { log(`Deal: ${listing.name} for ${fmt(r.quote.price)}, quote ${r.quote.id.slice(0, 8)}${r.message ? `: "${r.message}"` : ""}`, "good"); return r.quote; }
-      if (r?.type !== "counter") { log(`${listing.name}'s agent declined: ${r?.reason ?? "no deal"}`); return null; }
+      if (r?.type === "accept") { log(`Deal: ${listing.name} for ${fmt(r.quote.price)}, quote ${r.quote.id.slice(0, 8)}${r.message ? `: "${r.message}"` : ""}`, "good", deal(r)); return r.quote; }
+      if (r?.type !== "counter") { log(`${listing.name}'s agent declined: ${r?.reason ?? "no deal"}`, "info", { who: "seller", act: "decline", say: r?.reason }); return null; }
       counter = BigInt(r.price); sellerSays = r.message ?? "";
-      log(`${listing.name}'s agent counters at ${fmt(counter)}${sellerSays ? `: "${sellerSays}"` : ""}`);
+      log(`${listing.name}'s agent counters at ${fmt(counter)}${sellerSays ? `: "${sellerSays}"` : ""}`, "info", { who: "seller", act: "counter", price: String(counter), say: sellerSays, by: r.by });
       history.push({ offer, counter });
     }
     // Out of rounds: take the last counter if it fits, otherwise the list price.
     if (counter !== null && counter <= cap) {
       const r = await send({ listing, type: "accept", price: String(counter), contextId });
-      if (r?.type === "accept") { log(`Deal: ${listing.name} for ${fmt(r.quote.price)}, quote ${r.quote.id.slice(0, 8)}`, "good"); return r.quote; }
+      if (r?.type === "accept") { log(`Deal: ${listing.name} for ${fmt(r.quote.price)}, quote ${r.quote.id.slice(0, 8)}`, "good", deal(r)); return r.quote; }
     }
-    log(`No deal with ${listing.name}; it will be the list price`); return null;
+    log(`No deal with ${listing.name}; it will be the list price`, "info", { who: "system", act: "nodeal" }); return null;
   } catch (e) {
-    log(`AI negotiator unavailable (${e.message.slice(0, 50)}); using the fixed negotiation rule`);
+    log(`AI negotiator unavailable (${e.message.slice(0, 50)}); using the fixed negotiation rule`, "info", { who: "system", act: "note" });
     return negotiate({ listing, maxPrice, log });
   }
 }

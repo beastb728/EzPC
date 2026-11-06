@@ -15,6 +15,7 @@ Status: ✅ live on testnet (Hedera / Arkiv / World) · 🧪 covered by tests in
 | **Three complete PCs**, each from one shop: exact matches first, then the closest real alternatives, each listing what it relaxes | ✅ | `src/planner.mjs`, `src/recommend.mjs` |
 | Compatibility checks in code: CPU socket, RAM type, case fit, cooling, PSU watts and connectors, storage, monitor | ✅ | `src/compat.mjs` |
 | **Live A2A negotiation** in the checkout: the user watches both agents' messages as they arrive, then a congratulations pop-up with the saving | ✅ | `src/agent.mjs`, `src/a2a.mjs`, `public/index.html` |
+| **Negotiation window** (`/negotiation`): opens beside checkout when the agents start negotiating. Both agents side by side with their rules and which AI model (or fixed rules) each is using, a price track that closes in, a two-sided chat with real reply times, the deal card with the quote countdown and its Arkiv link, and the raw events | ✅ | `public/negotiation.html`, `src/agent.mjs`, `src/buyer-brain.mjs` |
 | Checkout with a card on file, order page, mark delivered | 🟡 | `src/orders.mjs` |
 | **Write a review** after delivery: starts a World ID check; the server only accepts a review with a fresh check for that order, one per order | ✅ | `src/orders.mjs`, `src/world.mjs` |
 | Sidebar: x402 budget left with **Revoke**, Google account, connected wallet with USDC and HBAR balances | ✅ | `public/index.html` |

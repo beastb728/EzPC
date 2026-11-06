@@ -16,6 +16,8 @@ const account = (q) => { const s = googleLive ? sessionOf(q) : null; return s?.m
 // The landing prompt (/), the build page (/build), orders, activity and audit. Old journey URLs go to the landing page.
 a.get(["/", "/build", "/order", "/orders", "/activity", "/audit"], (_, r) => r.set("Cache-Control", "no-store").sendFile("index.html", { root: "public" }));
 a.get(["/requirements", "/approve", "/search", "/results", "/checkout"], (_, r) => r.redirect("/"));
+// The negotiation window: the two agents' conversation, opened from checkout. Its data comes from /api/pc/negotiations/:id.
+a.get("/negotiation", (_, r) => r.set("Cache-Control", "no-store").sendFile("negotiation.html", { root: "public" }));
 a.use(express.static("public"));
 const wallet = userWallet(T);
 const pass = (r, x) => r.status(x.status).json(x.body);

@@ -532,6 +532,7 @@ const ratingText = (r) => r?.average != null ? `★ ${r.average.toFixed(1)} from
 const VERDICT = { likely: "Likely to reach", borderline: "Borderline for", unlikely: "Unlikely to reach" };
 const VPILL = { likely: "ok", borderline: "ask", unlikely: "no" };
 let RES = null, QTICK = null;
+const NEGO = {}; // package ID → its latest negotiation job, for the "watch in its own window" link
 const QWATCH = new Set();
 function results(rid, res) {
   RES = { rid, res };
@@ -605,13 +606,17 @@ async function checkout(pid) {
       <div class="dtotal">${q ? `${usd(q.price)}<span class="price-old">${usd(b.cost.total)}</span>` : usd(b.cost.total)}</div>
       <div style="margin:2px 0">${q ? `<p class="sm" style="margin:0;color:var(--green)">✓ Price your agent negotiated with the shop's agent. The shop confirms it at checkout.</p><p class="qttl" id="qttl" role="timer" aria-live="off"></p>`
         : live ? `<div class="nego-live" role="status"><span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>Your agent is negotiating with ${esc(b.shopName)}'s agent…</div>`
-        : `<button class="nego" id="nego">${svg(I.sparkle, 16)}Let my agent negotiate a better price</button><span class="nego-note">Your agent haggles with the shop's agent (A2A). You still decide whether to pay.</span>`}</div><div class="log${live ? " live" : ""}" id="negoLog" aria-live="polite">${log}</div>
+        : `<button class="nego" id="nego">${svg(I.sparkle, 16)}Let my agent negotiate a better price</button><span class="nego-note">Your agent haggles with the shop's agent (A2A). You still decide whether to pay.</span>`}</div>${NEGO[pid] ? `<p class="sm" style="margin:6px 0 0"><a href="/negotiation?id=${encodeURIComponent(NEGO[pid])}" target="ethpc-negotiation">${svg(I.sparkle, 14)} Watch the two agents in their own window ↗</a></p>` : ""}<div class="log${live ? " live" : ""}" id="negoLog" aria-live="polite">${log}</div>
       <div class="paycard"><div class="chip-g"></div><div class="num">4242 4242 4242 4242</div><div class="lb">Card ending in 4242</div></div>
       <div class="pay"><button id="pay"${live ? " disabled" : ""}>Pay with credit card</button></div>
       <p class="err" id="payErr"></p>`);
     if ($("nego")) $("nego").onclick = async () => {
       $("nego").disabled = true;
-      let job; try { job = await json("/api/pc/negotiations", { requestId: RES.rid, packageId: pid }); } catch (e) { return render(`<div class="bad">${esc(e.message)}</div>`); }
+      // Opened right away (inside the click, so the browser allows it), then pointed at the negotiation once it starts.
+      const win = window.open("/negotiation", "ethpc-negotiation", "popup,width=960,height=900");
+      let job; try { job = await json("/api/pc/negotiations", { requestId: RES.rid, packageId: pid }); } catch (e) { win?.close(); return render(`<div class="bad">${esc(e.message)}</div>`); }
+      NEGO[pid] = job.id;
+      if (win && !win.closed) win.location.replace(`/negotiation?id=${encodeURIComponent(job.id)}`);
       render("", true);
       // Each message appears as it happens, at most one every 0.9 s so it can be read even when the agents answer instantly.
       const say = (t) => /declined: unknown listing/.test(t) ? `${t.split("'s agent declined")[0]}'s agent has no record of this offer. It was recommended before the shop's agent restarted, so run a new search to negotiate.` : t;

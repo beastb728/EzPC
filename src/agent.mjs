@@ -191,25 +191,25 @@ async function negotiationFor(q) {
   return { p, listing: { key: `pkg:${p.id}`, name: `${p.shopName} ${p.label}`, priceTinybars: p.cost.total, endpoint: url("sellers", `/shops/${p.sellerId}`), unit: { symbol: "USDC", decimals: 6 }, openShare: 0.85, acceptShare: 0.97 } };
 }
 async function runNegotiation({ p, listing }, log) {
-  log(`Opens a negotiation with ${p.shopName}'s sales agent over A2A for the whole package (list ${(Number(p.cost.total) / 1e6).toFixed(2)} USDC)`);
+  log(`Opens a negotiation with ${p.shopName}'s sales agent over A2A for the whole package (list ${(Number(p.cost.total) / 1e6).toFixed(2)} USDC)`, "info", { who: "system", act: "open", price: String(p.cost.total) });
   try { return await aiNegotiate({ listing, maxPrice: p.cost.total, log }); }
   catch (e) { log(`Negotiation failed (${cleanError(e)}); the list price stands`, "bad"); return null; }
 }
 // Negotiates and answers once it's over, with every message.
 a.post("/pc/negotiate", pcToken, pcH(async (q, r) => {
   const n = await negotiationFor(q); if (n.error) return r.status(n.status).json({ error: n.error });
-  const events = [], quote = await runNegotiation(n, (text, kind = "info") => events.push({ at: Date.now(), text, kind }));
+  const events = [], quote = await runNegotiation(n, (text, kind = "info", meta = {}) => events.push({ at: Date.now(), text, kind, ...meta }));
   r.json({ packageId: n.p.id, sellerId: n.p.sellerId, listTotal: n.p.cost.total, quote, events });
 }));
 // The same negotiation, followed live: start it, then read its messages as they happen until status is "done".
 const negotiations = new Map();
 a.post("/pc/negotiations", pcToken, pcH(async (q, r) => {
   const n = await negotiationFor(q); if (n.error) return r.status(n.status).json({ error: n.error });
-  const job = { id: randomUUID(), status: "running", packageId: n.p.id, sellerId: n.p.sellerId, listTotal: n.p.cost.total, quote: null, events: [] };
+  const job = { id: randomUUID(), status: "running", packageId: n.p.id, sellerId: n.p.sellerId, shopName: n.p.shopName, label: n.p.label, listTotal: n.p.cost.total, startedAt: Date.now(), quote: null, events: [] };
   negotiations.set(job.id, job);
   if (negotiations.size > 200) negotiations.delete(negotiations.keys().next().value);
   r.json({ id: job.id });
-  job.quote = await runNegotiation(n, (text, kind = "info") => job.events.push({ at: Date.now(), text, kind }));
+  job.quote = await runNegotiation(n, (text, kind = "info", meta = {}) => job.events.push({ at: Date.now(), text, kind, ...meta }));
   job.status = "done";
 }));
 a.get("/pc/negotiations/:id", pcToken, (q, r) => { const j = negotiations.get(q.params.id); j ? r.json(j) : r.status(404).json({ error: "no such negotiation" }); });

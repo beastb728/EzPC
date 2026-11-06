@@ -89,17 +89,17 @@ export async function negotiate({ listing, maxPrice, log = () => {} }) {
   let offer = (list * pct(listing.openShare, 0.6)) / 100n;
   for (let round = 1; round <= 3; round++) {
     if (offer > cap) offer = cap;
-    log(`Offers ${listing.name} ${fmt(offer)} over A2A (list ${fmt(list)})`);
+    log(`Offers ${listing.name} ${fmt(offer)} over A2A (list ${fmt(list)})`, "info", { who: "buyer", act: "offer", price: String(offer), by: "rules" });
     let r = await send({ type: "offer", price: String(offer) });
     if (r?.type === "counter") {
       const c = BigInt(r.price);
-      log(`${listing.name}'s agent counters at ${fmt(c)}${r.message ? `: "${r.message}"` : ""}`);
-      if (c <= acceptAt && c <= cap) r = await send({ type: "accept", price: String(c) });
+      log(`${listing.name}'s agent counters at ${fmt(c)}${r.message ? `: "${r.message}"` : ""}`, "info", { who: "seller", act: "counter", price: String(c), say: r.message ?? "", by: r.by });
+      if (c <= acceptAt && c <= cap) { log(`Accepts ${listing.name}'s ${fmt(c)}`, "info", { who: "buyer", act: "accept", price: String(c), by: "rules" }); r = await send({ type: "accept", price: String(c) }); }
       else { offer = (offer + c) / 2n; continue; }
     }
-    if (r?.type === "accept") { log(`Deal: ${listing.name} for ${fmt(r.quote.price)}, quote ${r.quote.id.slice(0, 8)}`, "good"); return r.quote; }
-    log(`${listing.name}'s agent declined: ${r?.reason ?? "no deal"}`); return null;
+    if (r?.type === "accept") { log(`Deal: ${listing.name} for ${fmt(r.quote.price)}, quote ${r.quote.id.slice(0, 8)}`, "good", { who: "seller", act: "deal", price: String(r.quote.price), quoteId: r.quote.id, say: r.message ?? "" }); return r.quote; }
+    log(`${listing.name}'s agent declined: ${r?.reason ?? "no deal"}`, "info", { who: "seller", act: "decline", say: r?.reason }); return null;
   }
-  log(`No deal with ${listing.name}; it will be the list price`);
+  log(`No deal with ${listing.name}; it will be the list price`, "info", { who: "system", act: "nodeal" });
   return null;
 }

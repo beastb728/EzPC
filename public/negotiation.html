@@ -1,0 +1,224 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent negotiation · EthPC</title>
+<meta name="description" content="Your EthPC agent and the shop's agent negotiating live over A2A.">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--line:#e6e8ec;--line2:#d0d5dd;--ink:#101828;--ink2:#344054;--mut:#667085;--faint:#98a2b3;
+  --blue:#2f5be7;--blue-w:#eef2fe;--blue-s:#a9bdf6;--green:#15803d;--green-w:#e8f6ed;--amber:#b54708;--amber-w:#fef4e6;--red:#d92d20;--red-w:#fef0ee;
+  --shop:#c2410c;--shop-w:#fff3ec;--shop-s:#fdc9ad;
+  --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 14px/1.5 var(--sans);-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline;text-underline-offset:3px}
+.mono{font-family:var(--mono);font-size:.88em;overflow-wrap:anywhere}.mut{color:var(--mut)}.sm{font-size:12.5px}
+.wrap{max-width:920px;margin:0 auto;padding:20px 20px 40px}
+header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.logo{display:inline-flex;align-items:center;gap:7px;font-weight:800;font-size:17px;letter-spacing:-.02em;color:var(--ink)}.logo svg{color:var(--blue)}
+header h1{font-size:15px;font-weight:600;color:var(--ink2);margin:0 0 0 6px;padding-left:12px;border-left:1px solid var(--line2)}
+.status{margin-left:auto;display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--blue-w);color:var(--blue)}
+.status i{width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse 1.2s infinite}
+.status.done{background:var(--green-w);color:var(--green)}.status.done i,.status.none i{animation:none}.status.none{background:var(--bg);color:var(--mut)}
+@keyframes pulse{50%{opacity:.25}}
+
+/* The two agents */
+.duel{display:grid;grid-template-columns:1fr 112px 1fr;align-items:stretch;gap:0;margin-bottom:14px}
+.agent{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;transition:box-shadow .25s,border-color .25s}
+.agent.turn{box-shadow:0 0 0 3px var(--blue-w);border-color:var(--blue-s)}.agent.shop.turn{box-shadow:0 0 0 3px var(--shop-w);border-color:var(--shop-s)}
+.who{display:flex;align-items:center;gap:11px}
+.av{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;color:#fff;flex:none;background:linear-gradient(135deg,#4f7bff,#2f5be7)}
+.shop .av{background:linear-gradient(135deg,#fb923c,#c2410c)}
+.who b{display:block;font-size:15px;letter-spacing:-.01em}.who span{font-size:12.5px;color:var(--mut)}
+.tag{align-self:flex-start;font:500 11.5px var(--mono);padding:2px 7px;border-radius:4px;background:var(--blue-w);color:var(--blue)}
+.shop .tag{background:var(--shop-w);color:var(--shop)}
+.rules{margin:0;padding:0;list-style:none;font-size:12.5px;color:var(--ink2)}.rules li{padding-left:16px;position:relative}.rules li::before{content:"";position:absolute;left:3px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--faint)}
+.link{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--mut);font:600 11px var(--sans);letter-spacing:.06em;text-transform:uppercase}
+.wire{position:relative;width:100%;height:2px;background:var(--line2);overflow:hidden}
+.wire::after{content:"";position:absolute;top:0;left:-30%;width:30%;height:2px;background:linear-gradient(90deg,transparent,var(--blue),transparent);animation:flow 1.4s linear infinite}
+.wire.back::after{background:linear-gradient(90deg,transparent,var(--shop),transparent);animation-direction:reverse}
+.idle .wire::after{animation:none;display:none}
+@keyframes flow{to{left:100%}}
+
+/* Price track */
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.card h2{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0 0 4px}
+.gap{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.gap b{font-size:20px;letter-spacing:-.02em}
+.track{position:relative;height:58px;margin:26px 8px 4px}
+.rail{position:absolute;left:0;right:0;top:28px;height:6px;border-radius:3px;background:var(--line)}
+.band{position:absolute;top:28px;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--blue-s),var(--shop-s));transition:left .6s,width .6s}
+.mk{position:absolute;top:22px;width:18px;height:18px;margin-left:-9px;border-radius:50%;border:3px solid #fff;box-shadow:0 1px 3px rgba(16,24,40,.25);transition:left .6s cubic-bezier(.2,.8,.2,1);animation:pop .35s}
+.mk.b{background:var(--blue)}.mk.s{background:var(--shop)}.mk.d{background:var(--green);width:24px;height:24px;margin-left:-12px;top:19px}
+.mk.old{opacity:.35;width:10px;height:10px;margin-left:-5px;top:26px;border-width:2px;animation:none}
+.lab{position:absolute;transform:translateX(-50%);font:600 11.5px var(--sans);white-space:nowrap;transition:left .6s}
+.lab.b{top:0;color:var(--blue)}.lab.s{top:46px;color:var(--shop)}.lab.d{top:0;color:var(--green)}
+.ends{display:flex;justify-content:space-between;font-size:11.5px;color:var(--mut);margin:0 8px}
+@keyframes pop{from{transform:scale(.3)}}
+
+/* Chat */
+.chat{display:flex;flex-direction:column;gap:12px}
+.msg{max-width:72%;display:flex;flex-direction:column;gap:4px;animation:rise .35s ease-out}
+.msg.b{align-self:flex-start}.msg.s{align-self:flex-end;align-items:flex-end}
+.bub{padding:10px 13px;border-radius:12px;background:var(--blue-w);border:1px solid #dbe4fd}
+.msg.s .bub{background:var(--shop-w);border-color:#fde0cf}
+.msg.b .bub{border-top-left-radius:4px}.msg.s .bub{border-top-right-radius:4px}
+.act{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--blue)}.msg.s .act{color:var(--shop)}
+.price{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:1px 0}
+.say{font-size:13.5px;color:var(--ink2);font-style:italic}
+.meta{font-size:11.5px;color:var(--faint)}
+.sys{align-self:center;font-size:12px;color:var(--mut);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:4px 12px;animation:rise .35s ease-out;text-align:center}
+.typing{display:inline-flex;gap:4px;padding:12px 14px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--faint);animation:dot 1s infinite}.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes dot{40%{transform:translateY(-3px);background:var(--mut)}}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}}
+
+/* Deal */
+.deal{border:1px solid #b7e2c4;background:linear-gradient(180deg,#f3fbf5,#fff 60%);animation:rise .4s ease-out}
+.deal.none{border-color:var(--line);background:var(--card)}
+.deal .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.check{width:36px;height:36px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+.deal .big{font-size:26px;font-weight:800;letter-spacing:-.02em}.deal s{color:var(--faint);font-size:15px;margin-left:6px}
+.save{margin-left:auto;font-weight:700;color:var(--green);background:var(--green-w);border-radius:6px;padding:6px 10px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+.facts div{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px}.facts dt{font-size:11.5px;color:var(--mut)}.facts dd{margin:0;font-weight:600}
+.facts .soon dd{color:var(--amber)}
+details{margin-top:14px}summary{cursor:pointer;color:var(--mut);font-size:12.5px}
+pre{background:#0f172a;color:#dbe4fd;border-radius:8px;padding:12px;overflow:auto;max-height:340px;font:12px/1.5 var(--mono)}
+.note{font-size:12px;color:var(--mut);text-align:center;margin-top:18px}
+.empty{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--mut)}
+@media (max-width:640px){.duel{grid-template-columns:1fr;gap:8px}.link{flex-direction:row;height:24px}.wire{width:60px}.msg{max-width:90%}.rules{display:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head>
+<body><div class="wrap" id="app">
+<header><span class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>EthPC</span><h1>Agent negotiation</h1><span class="status" id="status"><i></i>Connecting…</span></header>
+<div id="body"><div class="empty">Loading the negotiation…</div></div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const usd = (u) => `${(Number(u) / 1e6).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`;
+const short = (u) => (Number(u) / 1e6).toLocaleString("en-US", { maximumFractionDigits: 0 });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const arkivUrl = (k) => /^0x[0-9a-f]{64}$/i.test(String(k ?? "")) ? `https://rabdi.explorer.arkiv.network/entity/${k}` : null;
+const clock = (t) => { const s = Math.max(0, Math.ceil((t - Date.now()) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+const aiTag = (by) => !by ? "AI" : /^rules/.test(by) ? "Fixed rules (no AI)" : `AI · ${by}`;
+const BOT = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9 17h6"/></svg>`;
+const SHOP = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0zM5 13v7h14v-7"/></svg>`;
+const ACT = { offer: "Offers", counter: "Counter-offer", accept: "Accepts", deal: "Deal", decline: "Declines", walk: "Walks away" };
+
+const id = new URLSearchParams(location.search).get("id");
+let job = null, shown = [];
+
+function shell() {
+  $("body").innerHTML = `
+    <section class="duel idle" id="duel">
+      <div class="agent" id="aBuyer"><div class="who"><div class="av">${BOT}</div><div><b>EthPC agent</b><span>Buys for you</span></div></div>
+        <span class="tag" id="tBuyer">AI</span>
+        <ul class="rules"><li>Never pays above the list price</li><li>Never lowers its own offer</li><li>At most 4 rounds</li></ul></div>
+      <div class="link" aria-hidden="true">A2A<div class="wire" id="wire"></div></div>
+      <div class="agent shop" id="aShop"><div class="who"><div class="av">${SHOP}</div><div><b>${esc(job.shopName ?? "Shop")} agent</b><span>Sells ${esc(job.label ?? "this PC")}</span></div></div>
+        <span class="tag" id="tShop">AI</span>
+        <ul class="rules"><li>Has a secret lowest price</li><li>Never raises its counter-offer</li><li>Code blocks any price below its floor</li></ul></div>
+    </section>
+    <section class="card"><div class="gap"><div><h2>Price</h2><span class="mut sm" id="gapNote">Waiting for the first offer…</span></div><b id="gapNum"></b></div>
+      <div class="track" id="track"><div class="rail"></div></div>
+      <div class="ends"><span id="lo"></span><span>List ${usd(job.listTotal)}</span></div></section>
+    <section class="card"><h2>Conversation</h2><div class="chat" id="chat" aria-live="polite"></div></section>
+    <div id="deal"></div>
+    <details><summary>Show the raw events the agents produced</summary><pre id="raw"></pre></details>
+    <p class="note">Every message is generated live by the two agents over A2A. Messages appear at reading pace; the times shown are real.</p>`;
+}
+
+function renderTrack() {
+  const list = Number(job.listTotal), moves = shown.filter((e) => e.price && ["offer", "counter", "accept", "deal"].includes(e.act));
+  if (!moves.length) return;
+  const lo = Math.min(...moves.map((e) => Number(e.price))) * 0.97, pos = (p) => `${Math.max(0, Math.min(100, ((Number(p) - lo) / (list - lo)) * 100))}%`;
+  $("lo").textContent = short(lo) + " USDC";
+  const lastB = [...moves].reverse().find((e) => e.who === "buyer"), lastS = [...moves].reverse().find((e) => e.who === "seller" && e.act !== "deal"), dealE = moves.find((e) => e.act === "deal");
+  let h = `<div class="rail"></div>`;
+  if (lastB && lastS && !dealE) h += `<div class="band" style="left:${pos(lastB.price)};width:calc(${pos(lastS.price)} - ${pos(lastB.price)})"></div>`;
+  for (const e of moves) if (e !== lastB && e !== lastS && e !== dealE) h += `<div class="mk old ${e.who === "buyer" ? "b" : "s"}" style="left:${pos(e.price)}"></div>`;
+  if (dealE) h += `<div class="mk d" style="left:${pos(dealE.price)}"></div><div class="lab d" style="left:${pos(dealE.price)}">Deal ${short(dealE.price)}</div>`;
+  else {
+    if (lastB) h += `<div class="mk b" style="left:${pos(lastB.price)}"></div><div class="lab b" style="left:${pos(lastB.price)}">You ${short(lastB.price)}</div>`;
+    if (lastS) h += `<div class="mk s" style="left:${pos(lastS.price)}"></div><div class="lab s" style="left:${pos(lastS.price)}">Shop ${short(lastS.price)}</div>`;
+  }
+  $("track").innerHTML = h;
+  if (dealE) { $("gapNum").textContent = usd(dealE.price); $("gapNote").textContent = "Both agents agreed"; }
+  else if (lastB && lastS) { $("gapNum").textContent = `${usd(Number(lastS.price) - Number(lastB.price))} apart`; $("gapNote").textContent = `Your agent ${usd(lastB.price)} · shop ${usd(lastS.price)}`; }
+  else if (lastB) { $("gapNum").textContent = usd(lastB.price); $("gapNote").textContent = "Opening offer from your agent"; }
+}
+
+function addEvent(e, prev) {
+  const ms = prev ? e.at - prev.at : null, dt = ms == null ? "" : ms < 1000 ? `replied in ${ms} ms` : `replied in ${(ms / 1000).toFixed(1)} s`;
+  if (e.who === "buyer" || e.who === "seller") {
+    const side = e.who === "buyer" ? "b" : "s";
+    if (e.by) $(side === "b" ? "tBuyer" : "tShop").textContent = aiTag(e.by);
+    $("chat").insertAdjacentHTML("beforeend", `<div class="msg ${side}"><div class="bub"><div class="act">${esc(ACT[e.act] ?? e.act)}</div>${e.price ? `<div class="price">${usd(e.price)}</div>` : ""}${e.say ? `<div class="say">“${esc(e.say)}”</div>` : ""}</div><div class="meta">${side === "b" ? "EthPC agent" : esc(job.shopName) + " agent"}${dt ? ` · ${dt}` : ""}${e.act === "deal" && e.quoteId ? ` · quote ${esc(e.quoteId.slice(0, 8))}` : ""}</div></div>`);
+  } else {
+    const t = e.act === "open" ? `Your agent opened a negotiation with ${esc(job.shopName)}'s agent over A2A` : esc(e.text);
+    $("chat").insertAdjacentHTML("beforeend", `<div class="sys">${t}</div>`);
+  }
+}
+
+function turn(next) {
+  $("aBuyer").classList.toggle("turn", next === "b"); $("aShop").classList.toggle("turn", next === "s");
+  $("duel").classList.toggle("idle", !next); $("wire").classList.toggle("back", next === "s");
+  document.querySelector(".typing")?.remove();
+  if (next) $("chat").insertAdjacentHTML("beforeend", `<div class="msg ${next}"><div class="typing" aria-label="typing"><i></i><i></i><i></i></div></div>`);
+}
+const nextSide = (e) => !e ? "b" : e.act === "deal" || e.act === "decline" || e.act === "walk" || e.act === "nodeal" ? null : e.who === "buyer" ? "s" : e.who === "seller" ? "b" : "b";
+
+async function renderDeal() {
+  const q = job.quote, d = $("deal");
+  if (!q) { d.innerHTML = `<section class="card deal none"><div class="top"><b>No deal this time.</b><span class="mut">The list price of ${usd(job.listTotal)} stands. You can try again from checkout.</span></div></section>`; return; }
+  const saved = Number(job.listTotal) - Number(q.price), rounds = shown.filter((e) => e.who === "buyer" && e.act === "offer").length;
+  d.innerHTML = `<section class="card deal"><div class="top"><div class="check">✓</div><div><div class="mut sm">Deal agreed with ${esc(job.shopName)}</div><span class="big">${usd(q.price)}</span><s>${usd(job.listTotal)}</s></div>${saved > 0 ? `<span class="save">You save ${usd(saved)} (${(saved * 100 / Number(job.listTotal)).toFixed(1)}%)</span>` : ""}</div>
+    <dl class="facts"><div><dt>Rounds</dt><dd>${rounds}</dd></div><div><dt>Quote</dt><dd class="mono">${esc(q.id.slice(0, 8))}</dd></div><div id="hold"><dt>Price held for</dt><dd>${clock(q.expiresAt)}</dd></div><div><dt>On Arkiv</dt><dd id="ark">publishing…</dd></div></dl>
+    <p class="mut sm" style="margin:12px 0 0">Go back to the checkout window to pay at this price.</p></section>`;
+  const tick = setInterval(() => { const h = $("hold"); if (!h) return clearInterval(tick); const left = q.expiresAt - Date.now(); h.classList.toggle("soon", left < 60000); h.querySelector("dd").textContent = left > 0 ? clock(q.expiresAt) : "expired"; if (left <= 0) clearInterval(tick); }, 1000);
+  for (let i = 0; i < 25; i++) {
+    const r = await fetch(`/api/pc/quotes/${encodeURIComponent(q.id)}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    const u = arkivUrl(r?.entityKey);
+    if (u) { $("ark").innerHTML = `<a href="${u}" target="_blank" rel="noopener">see the deal ↗</a>`; return; }
+    if (!r || r.arkiv === "simulated") { $("ark").textContent = "simulated"; return; }
+    if (r.arkiv === "failed") { $("ark").textContent = "not published"; return; }
+    await sleep(1500);
+  }
+}
+
+async function main() {
+  if (!id) { $("body").innerHTML = `<div class="empty">No negotiation selected. Start one from checkout with <b>Let my agent negotiate a better price</b>.</div>`; $("status").className = "status none"; $("status").innerHTML = "<i></i>Idle"; return; }
+  let misses = 0;
+  for (;;) {
+    const r = await fetch(`/api/pc/negotiations/${encodeURIComponent(id)}`);
+    if (r.ok) { job = await r.json(); break; }
+    if (r.status === 401) { $("body").innerHTML = `<div class="empty">Sign in to EthPC in the main window first, then reload this one.</div>`; return; }
+    if (++misses > 10) { $("body").innerHTML = `<div class="empty">This negotiation isn't available any more. Start a new one from checkout.</div>`; return; }
+    await sleep(500);
+  }
+  shell(); $("status").innerHTML = "<i></i>Live over A2A"; document.title = `${job.shopName} · Agent negotiation · EthPC`;
+  turn("b");
+  // Shows each event as it arrives, at most one every 0.9 s so it can be read; the polling keeps up with the agents.
+  for (;;) {
+    const evs = job.events ?? [];
+    if (shown.length < evs.length) {
+      const e = evs[shown.length], prev = shown.filter((x) => x.who === "buyer" || x.who === "seller").at(-1);
+      shown.push(e); addEvent(e, prev); renderTrack(); turn(job.status === "done" && shown.length === evs.length ? null : nextSide(e));
+      $("raw").textContent = JSON.stringify(shown, null, 2);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+      await sleep(900); continue;
+    }
+    if (job.status === "done") break;
+    await sleep(500);
+    const r = await fetch(`/api/pc/negotiations/${encodeURIComponent(id)}`).catch(() => null);
+    if (r?.ok) job = await r.json();
+  }
+  turn(null);
+  $("status").className = `status ${job.quote ? "done" : "none"}`; $("status").innerHTML = `<i></i>${job.quote ? "Deal agreed" : "No deal"}`;
+  renderDeal(); await sleep(50); window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+}
+main();
+</script>
+</body></html>
