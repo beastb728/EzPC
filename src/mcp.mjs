@@ -17,7 +17,7 @@ const call = async (f) => { try { return out(await f()); } catch (e) { return { 
 const asset = async () => (await get(url("guard", "/status"), token())).body.asset;
 const units = (x, a) => String(Math.round(Number(x) * 10 ** a.decimals));
 
-const s = new McpServer({ name: "agent-budget-guard-prototype", version: "0.1.0" });
+const s = new McpServer({ name: "ethpc", version: "0.2.0" });
 s.registerTool("request_intent", {
   description: "Ask the user to approve what you may buy before shopping: the task, seller categories, a total in the payment asset (HBAR or USDC, as find_sellers shows) and how long. The user approves once in their dashboard and sets an on-chain allowance. Then call get_intent until it's active.",
   inputSchema: { task: z.string().max(300), categories: z.array(z.string()).min(1).max(8).describe("e.g. market-prices, analysis, writing, sentiment"), max_total: z.number().positive().max(5).describe("In whole HBAR or USDC"), approval_over: z.number().positive().optional().describe("Purchases above this need a fresh human signature"), hours: z.number().positive().max(24).default(1) },
@@ -104,4 +104,40 @@ s.registerTool("spending_report", {
 }));
 s.registerTool("check_purchase", { description: "Check a purchase by request ID.", inputSchema: { request_id: z.string() } },
   (a) => call(async () => (await get(url("guard", `/purchases/${encodeURIComponent(a.request_id)}`), token())).body));
+
+// ---------- EthPC: the PC shopping flow, through the same Guard. Amounts are in USDC (or HBAR if that's the asset). ----------
+const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
+const pcAnswers = (a) => (a.budget != null ? { budgetUsdc: a.budget } : {});
+const money = (u, as) => `${(Number(u) / 10 ** as.decimals).toFixed(2)} ${as.symbol}`;
+s.registerTool("pc_requirements", {
+  description: "Read a PC request in plain words (games, resolution, FPS, monitor, peripherals, budget) and show what the agent understood, the defaults it assumed, and any question that must be answered first (only the budget is ever required). Free: nothing is paid.",
+  inputSchema: { request: z.string().min(3).max(500), budget: z.number().positive().optional().describe("PC budget in USDC, if the request doesn't say") },
+}, (a) => call(async () => (await post(url("agent", "/pc/requirements"), { text: a.request, answers: pcAnswers(a) }, token())).body));
+s.registerTool("pc_allowance_status", { description: "How much of the user's API spending allowance is left, and what one recommendation request costs. The allowance is the only money you may spend, and it never pays for the PC itself.", inputSchema: {} },
+  () => call(async () => { const as = await asset(), f = (await get(url("agent", "/pc/fee"), token())).body; return { fee: f.api ? money(f.api.fee, as) : "the recommendation API isn't listed right now", allowance: f.limit ? { left: money(f.limit.remaining, as), of: money(f.limit.maxTotal, as), spent: money(f.limit.spent, as) } : "none: ask for one with pc_request_allowance" }; }));
+s.registerTool("pc_request_allowance", {
+  description: "Ask the user for an API spending allowance (in USDC) for recommendation fees. You can't approve it: the user approves it in the EthPC app (http://localhost:4000/build) with their HashPack wallet, and Hedera enforces the cap. Then call pc_allowance_status until it shows money left.",
+  inputSchema: { max_total: z.number().positive().max(5) },
+}, (a) => call(async () => { const as = await asset(), x = (await post(url("agent", "/pc/limit"), { maxTotal: units(a.max_total, as) }, token())).body; return { ...x, next_step: "Ask the user to approve this allowance in the EthPC app with HashPack. Nothing can be spent until they do." }; }));
+s.registerTool("pc_find_builds", {
+  description: "Pay the recommendation fee with x402 from the user's allowance (through the Guard) and get up to three complete PCs from Arkiv shop listings, each with price, compatibility checks, a performance estimate and seller rating. The same request is never paid twice. Returns the payment's Hedera transaction IDs.",
+  inputSchema: { request: z.string().min(3).max(500), budget: z.number().positive().optional() },
+}, (a) => call(async () => {
+  const as = await asset(), start = await post(url("agent", "/pc/recommend"), { text: a.request, answers: pcAnswers(a), attempt: 1 }, token());
+  if (start.status !== 200) return { error: start.body.error, next_step: /limit|allowance/i.test(start.body.error ?? "") ? "Ask for an allowance with pc_request_allowance, then wait for the user to approve it." : undefined };
+  const rid = start.body.requestId; let x;
+  for (let i = 0; i < 60; i++) { x = (await get(url("agent", `/pc/recommend/${encodeURIComponent(rid)}`), token())).body; if (!["starting", "requested", "pending", "awaiting_approval"].includes(x.status) || x.result) break; await sleep(1000); }
+  if (x.status !== "paid") return { request_id: rid, status: x.status, reason: x.reason, next_step: x.status === "awaiting_approval" ? "NOT PAID YET: the user must approve this fee in the EthPC app." : "NOT PAID. Tell the user why." };
+  return { request_id: rid, paid: money(x.amount, as), x402_payment_tx: x.txId, allowance_pull_tx: x.pullTx,
+    packages: (x.result?.packages ?? []).map((p) => ({ package_id: p.id, label: p.label, shop: p.shopName, total: money(p.cost.total, { decimals: 6, symbol: "USDC" }), estimate: `${p.perf.verdict} to reach ${p.perf.target}`, relaxes: p.relaxed, parts: p.components.map((c) => `${c.category}: ${c.brand} ${c.model}`), rating: p.sellerRating?.average ?? null })),
+    next_step: "Show the user the options. Call pc_verify_payment to check the payment on Hedera, and pc_negotiate to haggle on the one they like." };
+}));
+s.registerTool("pc_negotiate", {
+  description: "Negotiate the price of one package with that shop's AI sales agent over A2A. Your agent never offers above the list price; the shop's lowest price stays private. Returns every message and, if there's a deal, a quote the user can pay in the EthPC app's checkout within 5 minutes.",
+  inputSchema: { request_id: z.string(), package_id: z.string() },
+}, (a) => call(async () => { const n = await post(url("agent", "/pc/negotiate"), { requestId: a.request_id, packageId: a.package_id }, token()); return n.status === 200 ? { list: money(n.body.listTotal, { decimals: 6, symbol: "USDC" }), deal: n.body.quote ? money(n.body.quote.price, { decimals: 6, symbol: "USDC" }) : "no deal, the list price stands", messages: n.body.events.map((e) => e.text) } : { error: n.body.error }; }));
+s.registerTool("pc_verify_payment", {
+  description: "Check a paid search's payment on Hedera with the Hedera Agent Kit (read-only, no key): the x402 transfer to the seller, the pull from the user's allowance, and the Guard's public HCS audit entry naming both. Status 'pending' means the audit entry hasn't reached the Mirror Node yet; try again in a few seconds.",
+  inputSchema: { request_id: z.string() },
+}, (a) => call(async () => (await get(url("agent", `/pc/proof/${encodeURIComponent(a.request_id)}`), token())).body));
 await s.connect(new StdioServerTransport());
