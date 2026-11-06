@@ -19,4 +19,10 @@
 | Paid API listings | 1 (`pc-recommend`, 0.05 USDC per request) |
 
 ## After Mumbai
-_Team: replace this with your own plans, honestly (e.g. onboarding a first real shop, a public deployment, opening the offer schema to other agents)._
+We plan to develop EthPC into a usable pilot. Our first priorities are:
+
+1. **A public demo**, so people can try it without running it locally.
+2. **Testing it with PC buyers**, and improving the accuracy of the recommendations from what they tell us.
+3. **Onboarding a small number of independent sellers**, who manage their own listings on Arkiv from their own wallets.
+
+Buyers will compare current offers and recent reviews straight from Arkiv. We'll use feedback from the pilot to decide when to introduce real checkout and fulfilment.

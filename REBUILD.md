@@ -14,7 +14,7 @@ Everything needed to set EthPC up from scratch, run a demo, and understand how t
 | WalletConnect project | dashboard.reown.com (free) | `WALLETCONNECT_PROJECT_ID` | Needed for `WALLET=hashpack` |
 | Arkiv | hub.arkiv.network | Access key; a wallet key holding tGLM | Without an access key the public endpoint is heavily rate limited |
 | Google sign-in | console.cloud.google.com → Google Auth Platform | OAuth client ID and secret (Web application) | Redirect URI `http://localhost:4000/auth/google/callback`. While the app is in Testing, add every user as a test user |
-| World ID | developer.world.org (sandbox) | Client ID and secret | Sandbox, `client_secret_post`. Install the sandbox World App on the phone that will scan |
+| World ID | auth.world.org/portal (production) and sandbox.auth.world.org/portal | Client ID and secret for each | Production (`PROD_WORLD_*`, used with `WORLD_USE=production`) needs a real Orb-verified World ID in World App; the sandbox (`WORLD_*`) uses the sandbox World App from TestFlight |
 | AI model | console.groq.com (or any OpenAI-compatible API) | API key | Model `openai/gpt-oss-120b` |
 
 **Public IDs in use** (on-chain, safe to share):
@@ -45,7 +45,7 @@ Everything needed to set EthPC up from scratch, run a demo, and understand how t
 - [ ] Shop offers last 7 days: `npm run shop -- renew all` if they're older.
 - [ ] User wallet has at least 5 HBAR (an allowance change costs about 0.72 HBAR) and at least 1 USDC.
 - [ ] Every judge's Google account is a test user in Google Auth Platform → Audience.
-- [ ] HashPack is unlocked on the user wallet; the sandbox World App is logged in on the phone.
+- [ ] HashPack is unlocked on the user wallet; World App (with the Orb-verified World ID) is on the phone that will scan.
 - [ ] `npm test` passes. Stop the app first: tests use the same ports.
 - [ ] Wait a minute after any test run so the AI provider isn't rate limited (Groq free tier: about 30 requests a minute).
 - [ ] Keep a screen recording of a full run as a backup.

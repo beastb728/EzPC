@@ -3,7 +3,9 @@
 EthPC uses World ID (World IdP, `auth.world.org`, OIDC Device Authorization Grant) as a **human checkpoint for an AI agent**: when the agent wants to pay more than the user's "ask me" amount, it stops until the user passes a fresh World ID check and signs that exact payment. World ID also gates writing a shop review (one per delivered order). Code: `src/world.mjs` (device flow and token checks), `src/guard.mjs` (step-ups), `src/orders.mjs` (reviews).
 
 ## Time to first success
-_Team: fill in honestly, e.g. "about N hours from registering the app to the first verified ID token", and what took the time._
+**Under a day** from registering the app to the first verified ID token on the sandbox. Most of that time went into getting a sandbox World ID ready in the sandbox World App, and into switching from the browser redirect flow to the device flow because callbacks must be HTTPS (see below); the token checks themselves were quick to write against the docs.
+
+**Moving to the real World ID service took minutes:** with a production app registered and a real Orb-verified World ID, it worked on the first attempt. Only the issuer and client credentials changed (`WORLD_USE=production`); the code, the token checks and the Orb-level requirement stayed the same.
 
 ## Friction we hit
 1. **HTTPS-only, exact-match callbacks.** Our app runs on `http://localhost:4000`, so the browser redirect flow couldn't come back to it. We switched to the Device Authorization Grant (RFC 8628), which needs no callback. It works well, but the docs could say up front that the device flow is the way to develop locally.
@@ -11,7 +13,7 @@ _Team: fill in honestly, e.g. "about N hours from registering the app to the fir
 3. **Portal sign-in.** The first Google account we used to register in the portal got `account_not_eligible`; a second account worked. The error didn't say why.
 4. **Freshness on the device grant.** `prompt` and `max_age` aren't honoured on the device grant, so "fresh" has to be enforced by the app: we reject any token whose `auth_time` is before the moment we started the check.
 5. **Popups.** World's pages won't load in an iframe, so we open a popup. It has to be opened synchronously inside the click handler, or browsers block it; in macOS full screen, Firefox turns it into a tab.
-6. **Mixed signals on sandbox vs mocked proofs.** The hackathon page says proofs are mocked and a sandbox app is no longer needed; the docs still describe the sandbox app and issuer. We kept the sandbox issuer because it worked; it was unclear which one judges expect.
+6. **Mixed signals on sandbox vs mocked proofs.** The hackathon page says proofs are mocked and a sandbox app is no longer needed; the docs still describe the sandbox app and issuer. We built on the sandbox, then switched to the real service (`auth.world.org`) once we had a real Orb-verified World ID; it would help to know which one judges expect.
 7. **Client auth method is fixed per client.** The portal default is `client_secret_basic`; we needed `client_secret_post`, which meant registering a new client.
 
 ## Missing capability or documentation

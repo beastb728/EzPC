@@ -70,5 +70,5 @@ Status: ✅ live on testnet (Hedera / Arkiv / World) · 🧪 covered by tests in
 - The PC checkout is a mock: no card details are collected, nothing is charged, no order ships.
 - Performance verdicts are labelled sample estimates, not benchmarks.
 - The 31 reviews on Arkiv are seeded samples; reviews written in the app after a World ID check are real.
-- World ID uses World's sandbox.
+- World ID runs on the real service (`auth.world.org`, Orb level required); the sandbox remains available as a fallback by removing `WORLD_USE=production`.
 - One user per running copy.
