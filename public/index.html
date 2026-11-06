@@ -136,6 +136,7 @@ td+td,th+th{padding-left:12px}td.n,th.n{text-align:right;white-space:nowrap}tr.t
 .lines{list-style:none;margin:0;padding:0}
 .lines li{display:grid;grid-template-columns:16px 1fr;gap:8px;padding:6px 0;line-height:1.45;font-size:13.5px}#agentPanel details{margin-top:8px}#agentPanel .kv{margin-top:10px}#agentPanel table{margin-top:10px}
 .lines .ic{font-weight:700;text-align:center;font-size:12px}.lines .done .ic{color:var(--green)}.lines .now .ic{color:var(--blue);animation:blink 1.1s steps(2) infinite}.lines .bad .ic{color:var(--red)}.lines .todo{color:var(--faint)}
+.proof{margin-top:12px;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:#fcfcfd;font-size:13px}.proof .lines{margin-top:4px}.proof.wait{display:flex;align-items:center;gap:10px;color:var(--blue);font-weight:500}
 .lines li.fresh{animation:pop .45s ease-out}@keyframes pop{from{opacity:0;transform:translateY(-4px)}}@keyframes blink{50%{opacity:.25}}
 
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:26px}
@@ -344,7 +345,7 @@ async function build() {
   shell("build", headOf("Your PC build", "Everything the agent has found so far. Review the detail before you buy.", `<span class="pill" id="agentState">Idle</span>`),
     `<div class="sec"><div class="sec-h"><span>Your request</span><a href="/">Edit request</a></div><div class="sec-b"><p class="said">${esc(S.text)}</p><div id="chips" class="chips"></div><p id="assumed" class="assumed"></p><div id="clarify"></div></div></div>
      <div class="sec" id="authPanel" hidden></div>
-     <div class="sec" id="agentPanel" hidden><div class="sec-h"><span>Agent progress</span></div><div class="sec-b"><ul class="lines" id="steps"></ul>
+     <div class="sec" id="agentPanel" hidden><div class="sec-h"><span>Agent progress</span></div><div class="sec-b"><ul class="lines" id="steps"></ul><div id="proof"></div>
        <details id="receipt"><summary>Payment receipt and audit trail</summary><div id="receiptBody"></div></details></div></div>
      <div id="agentMsg"></div><div id="orderBanner"></div><div id="results"></div>`,
   );
@@ -472,7 +473,7 @@ async function follow(rid) {
     <table><tr><th>Time</th><th>Guard event (HCS)</th></tr>${(x.events ?? []).map((v) => `<tr><td class="mono">${new Date(v.at).toLocaleTimeString()}</td><td>${esc(humanize(v.event))}<div class="mut">${esc(ref(clean(v.detail)))}</div></td></tr>`).join("")}</table>`;
   if (!bad && !$("results").innerHTML) $("results").innerHTML = SKELETON;
   if (st === "awaiting_approval") await stepup(rid);
-  if (paid) { $("agentMsg").innerHTML = ""; refreshAllowance(); onRevealed = () => results(rid, res); return drawSteps(); }
+  if (paid) { $("agentMsg").innerHTML = ""; refreshAllowance(); onRevealed = () => { results(rid, res); checkProof(rid); }; return drawSteps(); }
   if (bad) {
     $("results").innerHTML = "";
     const limitIssue = /per-purchase limit|budget would be exceeded|no active intent|allowance|revoked/i.test(x.reason ?? "");
@@ -483,6 +484,18 @@ async function follow(rid) {
     return;
   }
   later(() => follow(rid), 1500);
+}
+// The agent's own check of its payment on Hedera, done with the Hedera Agent Kit's read-only tools (testnet only).
+async function checkProof(rid, tries = 0) {
+  const box = $("proof"); if (!box) return;
+  let p; try { p = await json(`/api/pc/proof/${encodeURIComponent(rid)}`); } catch { return; }
+  if (!["done", "pending"].includes(p.status)) { box.innerHTML = ""; return; }
+  if (p.status === "pending") { box.innerHTML = `<div class="proof wait" role="status"><span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>Checking the payment on Hedera with the Hedera Agent Kit…</div>`; if (tries < 20) later(() => checkProof(rid, tries + 1), 3000); return; }
+  const row = (ok, text) => `<li class="${ok ? "done" : "bad"}"><span class="ic">${ok ? "✓" : "✕"}</span><span>${text}</span></li>`;
+  box.innerHTML = `<div class="proof"><div><b>${p.ok ? "Verified on Hedera by the agent" : "The agent couldn't fully verify this payment"}</b> <span class="mut">with the Hedera Agent Kit, read-only</span></div><ul class="lines">
+    ${row(p.payment?.ok, `x402 payment ${esc(p.payment?.result ?? "not found")}: ${units(p.payment?.amount ?? 0)} to the seller. ${txLink(p.payment?.tx)}`)}
+    ${p.pull ? row(p.pull.ok, `Allowance pull ${esc(p.pull.result)}: ${units(p.pull.amount)} from your wallet. ${txLink(p.pull.tx)}`) : ""}
+    ${row(p.audit?.ok, p.audit ? `Logged on the public audit topic, message #${esc(p.audit.seq)}. <a class="mono" href="https://hashscan.io/testnet/topic/${encodeURIComponent(p.audit.topicId)}" target="_blank" rel="noopener">${esc(p.audit.topicId)} ↗</a>` : "Audit entry not found")}</ul></div>`;
 }
 let stepKey = "";
 async function stepup(rid) {

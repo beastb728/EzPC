@@ -2,7 +2,8 @@
 // Its choices are fixed logic; connect Claude through the MCP server (src/mcp.mjs) for a real model.
 import { createHash, randomUUID } from "node:crypto";
 import { app, listen, modes, PORTS, post, get, url, requireToken } from "./common.mjs";
-import { ASSET, toUnits } from "./asset.mjs";
+import { ASSET, toUnits, isHbar } from "./asset.mjs";
+import { kitRunner, proveSearchPayment } from "./onchain-proof.mjs";
 import { spendReport } from "./spend-report.mjs";
 import { aiNegotiate } from "./buyer-brain.mjs";
 import { listSellers, simulatedSellers } from "./pc-directory.mjs";
@@ -212,6 +213,29 @@ a.post("/pc/negotiations", pcToken, pcH(async (q, r) => {
   job.status = "done";
 }));
 a.get("/pc/negotiations/:id", pcToken, (q, r) => { const j = negotiations.get(q.params.id); j ? r.json(j) : r.status(404).json({ error: "no such negotiation" }); });
+// After paying, the agent checks its own payment on Hedera with the Hedera Agent Kit (read-only, no key): the x402
+// transfer, the allowance pull, and the Guard's HCS audit entry naming both. "pending" until the entry reaches the
+// Mirror Node; a complete proof is cached. Only meaningful on testnet, so simulated payments report "unavailable".
+const proofs = new Map(), proving = new Map();
+a.get("/pc/proof/:rid", pcToken, pcH(async (q, r) => {
+  const rid = String(q.params.rid);
+  if (modes().payments !== "live" || !process.env.HCS_TOPIC_ID) return r.json({ status: "unavailable" });
+  if (proofs.has(rid)) return r.json(proofs.get(rid));
+  const x = await get(url("guard", `/purchases/${encodeURIComponent(rid)}`), T);
+  if (x.status !== 200 || x.body.listingKey !== API) return r.status(404).json({ error: "no search with that ID" });
+  if (x.body.status !== "paid" || !x.body.txId) return r.json({ status: "not_paid" });
+  if (!proving.has(rid)) proving.set(rid, (async () => {
+    const k = kitRunner(process.env.USER_ACCOUNT_ID);
+    try {
+      const p = await proveSearchPayment({ run: k.run, payTx: x.body.txId, pullTx: x.body.pullTx, topicId: process.env.HCS_TOPIC_ID, ref: rid, tokenId: isHbar ? null : ASSET.id,
+        userId: process.env.USER_ACCOUNT_ID, guardId: process.env.GUARD_ACCOUNT_ID, sellerId: process.env.SELLER_ACCOUNT_ID });
+      const out = { status: p.audit ? "done" : "pending", checkedAt: Date.now(), ...p };
+      if (out.status === "done") proofs.set(rid, out);
+      return out;
+    } finally { k.close(); proving.delete(rid); }
+  })());
+  r.json(await proving.get(rid));
+}));
 // Free reads: the raw offers and the shop profiles.
 a.get("/pc/offers", pcToken, pcH(async (q, r) => r.json({ source: offersSource(), offers: (await allOffers()).filter((o) => !q.query.category || o.category === String(q.query.category)) })));
 let sellerCache = null; // last good seller list, used if Arkiv doesn't answer

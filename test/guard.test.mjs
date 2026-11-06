@@ -377,3 +377,7 @@ test("F15 an agreed quote is kept on disk, so paying still works after a restart
   const saved = new Map(JSON.parse(readFileSync(join(dir, "seller-quotes.json"), "utf8")));
   assert.equal(saved.get(n.quote.id)?.price, n.quote.price); assert.ok(saved.get(n.quote.id).expiresAt > Date.now());
 });
+test("F16 the agent's on-chain proof (Hedera Agent Kit) is testnet only: simulated payments report unavailable", async () => {
+  const r = await paidRecommendation();
+  assert.deepEqual((await web(`/api/pc/proof/${r.requestId}`)).body, { status: "unavailable" });
+});

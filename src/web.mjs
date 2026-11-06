@@ -65,6 +65,7 @@ a.get("/api/pc/fee", h(async (_, r) => pass(r, await get(url("agent", "/pc/fee")
 a.post("/api/pc/limit", h(async (q, r) => pass(r, await post(url("agent", "/pc/limit"), { maxTotal: q.body?.maxTotal, approvalOver: q.body?.approvalOver }, T))));
 a.post("/api/pc/recommend", h(async (q, r) => pass(r, await post(url("agent", "/pc/recommend"), q.body, T))));
 a.get("/api/pc/recommend/:rid", h(async (q, r) => pass(r, await get(url("agent", `/pc/recommend/${enc(q.params.rid)}`), T))));
+a.get("/api/pc/proof/:rid", h(async (q, r) => pass(r, await get(url("agent", `/pc/proof/${enc(q.params.rid)}`), T))));
 // A search's progress: the Guard's state for it, plus its audit entries (discovery, checks, payment, result).
 a.get("/api/pc/search/:rid", h(async (q, r) => {
   const [s, ev] = await Promise.all([get(url("agent", `/pc/recommend/${enc(q.params.rid)}`), T), get(url("guard", `/audit/ref/${enc(q.params.rid)}`), T)]);
