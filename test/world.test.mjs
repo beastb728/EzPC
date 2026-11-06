@@ -13,7 +13,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const call = async (p, b, t = AGENT, m = "POST") => { const r = await fetch(G + p, { method: m, headers: { "content-type": "application/json", "x-service-token": t }, body: b ? JSON.stringify(b) : undefined }); return { status: r.status, body: await r.json() }; };
 const web = async (p, b) => { const r = await fetch(W + p, { method: b === undefined ? "GET" : "POST", headers: { "content-type": "application/json" }, body: b === undefined ? undefined : JSON.stringify(b) }); return { status: r.status, body: await r.json() }; };
 // What the fake World does next: "pending", or approve as a given subject, or deny. Also lets a test send a stale token.
-const world = { next: "pending", sub: "human-1", stale: false, secretSeen: null };
+const world = { next: "pending", sub: "human-1", stale: false, secretSeen: null, acr: "https://world.org/oidc/acr/orb" };
 const { publicKey, privateKey } = await generateKeyPair("RS256"); const jwk = { ...(await exportJWK(publicKey)), kid: "k1", alg: "RS256" };
 
 before(async () => {
@@ -27,12 +27,12 @@ before(async () => {
       if (world.next === "pending") return json(400, { error: "authorization_pending" });
       if (world.next === "deny") return json(400, { error: "access_denied" });
       const now = Math.floor(Date.now() / 1000);
-      const t = await new SignJWT({ auth_time: world.stale ? now - 3600 : now, acr: "https://world.org/oidc/acr/orb" }).setProtectedHeader({ alg: "RS256", kid: "k1" }).setIssuer(ISS).setAudience(CLIENT).setSubject(world.sub).setIssuedAt().setExpirationTime("5m").sign(privateKey);
+      const t = await new SignJWT({ auth_time: world.stale ? now - 3600 : now, acr: world.acr }).setProtectedHeader({ alg: "RS256", kid: "k1" }).setIssuer(ISS).setAudience(CLIENT).setSubject(world.sub).setIssuedAt().setExpirationTime("5m").sign(privateKey);
       return json(200, { id_token: t, access_token: "x", token_type: "Bearer" });
     }
     json(404, {});
   }).listen(4555);
-  const e = { ...process.env, AGENT_TOKEN: AGENT, DASH_TOKEN: DASH, GUARD_DB: join(dir, "g.db"), SELLER_PACKAGES_FILE: join(dir, "seller-packages.json"), SELLER_QUOTES_FILE: join(dir, "seller-quotes.json"), WORLD_ISSUER: ISS, WORLD_CLIENT_ID: CLIENT, WORLD_CLIENT_SECRET: "worldidp_client_secret_test", REVIEWS_FILE: join(dir, "reviews.json") };
+  const e = { ...process.env, AGENT_TOKEN: AGENT, DASH_TOKEN: DASH, GUARD_DB: join(dir, "g.db"), SELLER_PACKAGES_FILE: join(dir, "seller-packages.json"), SELLER_QUOTES_FILE: join(dir, "seller-quotes.json"), WORLD_ISSUER: ISS, WORLD_CLIENT_ID: CLIENT, WORLD_CLIENT_SECRET: "worldidp_client_secret_test", WORLD_REQUIRED_ACR: "https://world.org/oidc/acr/orb", REVIEWS_FILE: join(dir, "reviews.json") };
   for (const k of Object.keys(e)) if (/_PRIVATE_KEY$|_ACCOUNT_ID$|^HCS_TOPIC_ID$|^LLM_BASE_URL$|^DATA_GOV_IN_API_KEY$|^PROTOTYPE_MODES$|^APPROVED_OWNERS$|^PAY_ASSET$|^SHOP_|^GOOGLE_|^SESSION_SECRET$/.test(k)) delete e[k];
   kid = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", "start.mjs"], { env: e, stdio: "ignore" });
   for (let i = 0; i < 100; i++) { try { await fetch(W + "/"); return; } catch { await sleep(200); } } throw new Error("stack did not start");
@@ -142,4 +142,25 @@ test("W14 only the dashboard can vouch for an account; without one, World ID is 
   assert.equal((await call(`/approvals/${i.approvalId}/decision`, { decision: "approve", account: { via: "google", sub: "x" } }, AGENT)).status, 401);
   assert.equal((await call(`/approvals/${i.approvalId}/decision`, { decision: "approve" }, DASH)).status, 403);
   assert.equal((await call(`/approvals/${i.approvalId}/decision`, { decision: "approve", account: { via: "email", sub: "x" } }, DASH)).status, 403);
+});
+test("W15 a step-up (a fee above the 'ask me' amount) needs World ID even when a Google account approved the allowance", async () => {
+  await call("/reset", { forgetWorld: true }, DASH); // a clean start: no World session, no linked owner left by earlier tests
+  const GOOGLE = { via: "google", sub: "g-123", email: "buyer@example.com" };
+  const i = await newIntent();
+  assert.equal((await call(`/approvals/${i.approvalId}/decision`, { decision: "approve", account: GOOGLE }, DASH)).body.state, "active", "Google approves the allowance");
+  const ap = await stepup("w15"); assert.ok(ap, "step-up created"); assert.ok(!ap.verified, "no World session covers it");
+  const refused = await call(`/approvals/${ap.id}/decision`, { decision: "approve", account: GOOGLE }, DASH);
+  assert.equal(refused.status, 403); assert.match(refused.body.error, /World ID/);
+  assert.equal((await web(`/api/approvals/${ap.id}/approve`, {})).status, 403, "the web route refuses it too");
+  const v = await verifyAs(ap.id, "approve"); assert.equal(v.verified, 1, JSON.stringify(v.world));
+  assert.notEqual((await call(`/approvals/${ap.id}/decision`, { decision: "approve", account: GOOGLE }, DASH)).status, 403, "after World ID, the user can sign it");
+});
+test("W16 with WORLD_REQUIRED_ACR set, a World ID at a lower verification level is refused; Orb level passes", async () => {
+  await call("/reset", { forgetWorld: true }, DASH);
+  const i = await newIntent();
+  world.acr = "https://world.org/oidc/acr/selfie";
+  const low = await verifyAs(i.approvalId, "approve");
+  world.acr = "https://world.org/oidc/acr/orb";
+  assert.ok(!low.verified); assert.match(low.world.error, /verified at https:\/\/world.org\/oidc\/acr\/selfie, but https:\/\/world.org\/oidc\/acr\/orb is required/);
+  const j = await newIntent(), ok = await verifyAs(j.approvalId, "approve"); assert.equal(ok.verified, 1, JSON.stringify(ok.world));
 });

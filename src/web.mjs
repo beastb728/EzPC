@@ -7,7 +7,8 @@ import { googleAuthRoutes, googleLive, sessionOf } from "./google-auth.mjs";
 const T = process.env.DASH_TOKEN; const a = app(); a.get("/shop.html", (_, r) => r.redirect("/"));
 // Google sign-in (account access). When it is configured, every /api route except the landing page's reads needs a session.
 googleAuthRoutes(a);
-// A verified Google account authorises allowance and fee approvals; World ID is kept for reviews. Without Google sign-in
+// A verified Google account authorises the allowance itself. Step-ups (a fee above the user's "ask me" amount) and
+// reviews always need World ID. Without Google sign-in
 // configured, approvals still need World ID when World is live, as before.
 const account = (q) => { const s = googleLive ? sessionOf(q) : null; return s?.mode === "live" ? { via: "google", sub: s.sub, email: s.email } : null; };
 // The PC app's pages are one HTML shell with a client-side router: each stage has its own URL, and a refresh on any of
@@ -31,7 +32,7 @@ a.post("/api/wallet/prepare", h(async (q, r) => {
   const ap = await get(url("guard", `/approvals/${encodeURIComponent(String(q.body?.approvalId ?? ""))}`), T);
   if (ap.status !== 200 || ap.body.state !== "pending") return r.status(409).json({ error: "approval is not pending" });
   const s = (await get(url("guard", "/status"), T)).body;
-  if (s.modes.world === "live" && !ap.body.verified && !account(q)) return r.status(403).json({ error: "verify with World first" });
+  if (s.modes.world === "live" && !ap.body.verified && !(ap.body.kind === "intent" && account(q))) return r.status(403).json({ error: "verify with World ID first" });
   r.json({ transaction: ap.body.kind === "intent" ? prepare.allowance(ap.body.intent.maxTotal) : prepare.scheduleSign(ap.body.schedule_id) });
 }));
 a.get("/api/status", h(async (_, r) => pass(r, await get(url("guard", "/status"), T))));
@@ -46,7 +47,7 @@ a.post("/api/approvals/:id/approve", h(async (q, r) => {
   const ap = await get(url("guard", `/approvals/${q.params.id}`), T);
   if (ap.status !== 200 || ap.body.state !== "pending") return r.status(409).json({ error: "approval is not pending" });
   const s = (await get(url("guard", "/status"), T)).body;
-  if (s.modes.world === "live" && !ap.body.verified && !account(q)) return r.status(403).json({ error: "verify with World first" });
+  if (s.modes.world === "live" && !ap.body.verified && !(ap.body.kind === "intent" && account(q))) return r.status(403).json({ error: "verify with World ID first" });
   const walletTx = hashpack ? walletTxFrom(q) : ap.body.kind === "intent" ? await wallet.setAllowance(ap.body.intent.maxTotal) : await wallet.signSchedule(ap.body.schedule_id);
   pass(r, await post(url("guard", `/approvals/${q.params.id}/decision`), { decision: "approve", walletTx, account: account(q) }, T));
 }));

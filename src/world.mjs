@@ -38,6 +38,9 @@ export async function pollDevice(s) {
   try {
     const { payload } = await jwtVerify(r.body.id_token, createRemoteJWKSet(new URL(d.jwks_uri)), { issuer: d.issuer, audience: process.env.WORLD_CLIENT_ID });
     if (!payload.auth_time || payload.auth_time < s.startedAt - 5) return { state: "failed", error: "authentication is not fresh" };
+    // Optional: require a verification level (e.g. https://world.org/oidc/acr/orb). Off unless WORLD_REQUIRED_ACR is set.
+    const need = process.env.WORLD_REQUIRED_ACR;
+    if (need && payload.acr !== need) return { state: "failed", error: `this World ID is verified at ${payload.acr ?? "an unknown level"}, but ${need} is required` };
     return { state: "verified", iss: payload.iss, sub: String(payload.sub), acr: payload.acr ?? null, amr: payload.amr ?? null, authTime: payload.auth_time };
   } catch (e) { return { state: "failed", error: `ID token rejected: ${e.message}` }; }
 }

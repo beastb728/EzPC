@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS reviews(order_id TEXT PRIMARY KEY, seller_id TEXT, re
     const who = `${r.iss}|${r.sub}`, owner = setting("world_owner");
     if (owner && owner !== who) return keep({ deviceCode: null }, "a different World ID verified; the review must come from the account that placed the order");
     db.prepare("UPDATE review_checks SET login=?, who=?, verified_at=?, error=NULL WHERE order_id=?").run(JSON.stringify({ ...w, deviceCode: null }), who, Date.now(), id);
-    await audit("review_world_verified", id, "fresh World ID check: verified human, for a demo-order review");
+    await audit("review_world_verified", id, `fresh World ID check: verified human, for a demo-order review${r.acr ? `, ${r.acr}` : ""}`);
   }
 
   // Simulated card checkout for one package from a PAID recommendation. The package comes from the Guard's own copy of

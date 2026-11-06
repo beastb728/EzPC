@@ -402,7 +402,8 @@ function showAuth(note = "") {
     : `${isHP() ? "Pair HashPack. You'll approve the allowance there." : "Connect the wallet for this run."}<div class="row"><button id="gWallet">Connect wallet</button></div>`;
   const allowBody = enough ? `${units(l.remaining)} left of ${units(l.maxTotal)}. The agent can start.`
     : wal ? `The agent pays ${a ? `${units(a.fee)} per recommendation request` : "a small fee per request"} with x402, on its own, until this allowance runs out. It never pays for the PC: your ${usd(REQ.requirements.budgetUnits)} PC budget only picks the options.
-      <div class="row"><label class="sm" for="allowIn">Allowance (${esc(asset.symbol)})</label><input type="number" id="allowIn" min="0.01" step="0.01" value="0.20"><button id="approve">Approve in wallet</button></div><div id="authStatus" class="sm"></div>`
+      <div class="row"><label class="sm" for="allowIn">Allowance (${esc(asset.symbol)})</label><input type="number" id="allowIn" min="0.01" step="0.01" value="0.20"><button id="approve">Approve in wallet</button></div>
+      <div class="row"><label class="sm" for="askIn">Ask me with World ID for any fee above (${esc(asset.symbol)}, optional)</label><input type="number" id="askIn" min="0" step="0.01" placeholder="never"></div><div id="authStatus" class="sm"></div>`
     : "Covers the agent's paid recommendation requests.";
   p.innerHTML = `<div class="sec-h"><span>Before the agent starts</span><span>${[wal, enough].filter(Boolean).length} of 2 done</span></div>${note ? `<div class="sec-b" style="padding-bottom:0">${note}</div>` : ""}<ol class="setup">
     ${step(1, wal ? "done" : "now", "Connect your wallet", walletBody)}
@@ -418,7 +419,13 @@ async function approveAllowance(resume) {
   const st = (t) => { $("authStatus").innerHTML = t; }; $("authErr").textContent = ""; $("approve").disabled = true;
   try {
     let id = resume;
-    if (!id) { const v = Number($("allowIn").value); if (!(v > 0)) throw new Error("Enter an allowance above zero."); id = (await json("/api/pc/limit", { maxTotal: String(Math.round(v * 10 ** asset.decimals)) })).approvalId; S.pending = id; save(); }
+    if (!id) {
+      const v = Number($("allowIn").value), askRaw = $("askIn")?.value.trim(), ask = askRaw === "" || askRaw == null ? null : Number(askRaw);
+      if (!(v > 0)) throw new Error("Enter an allowance above zero.");
+      if (ask != null && !(ask >= 0 && ask < v)) throw new Error("The \"ask me\" amount must be at least zero and below the allowance.");
+      const u = (x) => String(Math.round(x * 10 ** asset.decimals));
+      id = (await json("/api/pc/limit", { maxTotal: u(v), ...(ask != null ? { approvalOver: u(ask) } : {}) })).approvalId; S.pending = id; save();
+    }
     for (let i = 0; ; i++) {
       const ap = (await json("/api/approvals")).find((x) => x.id === id);
       if (!ap) { S.pending = null; save(); if (resume) { $("approve").disabled = false; return; } throw new Error("the approval expired; try again"); }
@@ -500,8 +507,11 @@ async function checkProof(rid, tries = 0) {
 let stepKey = "";
 async function stepup(rid) {
   const ap = (await json("/api/approvals").catch(() => [])).find((a) => a.kind === "stepup" && a.ref === rid); if (!ap) return;
-  const needWorld = worldLive() && !ap.verified && AUTH?.mode !== "live", key = `${ap.id}|${needWorld}|${ap.world?.userCode ?? ""}|${ap.world?.error ?? ""}`; if (key === stepKey) return; stepKey = key;
-  $("agentMsg").innerHTML = `<div class="q"><p><b>The Guard paused this fee and needs your signature.</b> ${esc(ap.purchase?.reason ?? "")}</p>${needWorld ? (ap.world && !ap.world.error ? `<p class="sm">Approve in World App, code <b class="mono">${esc(ap.world.userCode)}</b>.</p>` : `<div class="row"><button id="suWorld">Verify with World ID</button></div>`) : `<div class="row"><button id="suSign">Sign ${units(ap.amount)}</button><button class="ghost" id="suDeny">Deny</button></div>`}</div>`;
+  // A step-up is a human checkpoint: the agent wants to pay above the "ask me" amount. World ID first (unless a World
+  // check from the last few minutes covers it), then the user signs that exact payment in their wallet.
+  const needWorld = worldLive() && !ap.verified, key = `${ap.id}|${needWorld}|${ap.world?.userCode ?? ""}|${ap.world?.error ?? ""}`; if (key === stepKey) return; stepKey = key;
+  const head = `<p><b>The agent wants to pay ${units(ap.amount)}, above your "ask me" amount, so it's paused.</b> ${needWorld ? "Confirm it's you with World ID, then sign this exact payment in your wallet." : `${!worldLive() ? "" : ap.worldSession ? "Your World ID check from a few minutes ago covers this. " : "World ID confirmed. "}Sign this exact payment in your wallet, or deny it.`}</p>`;
+  $("agentMsg").innerHTML = `<div class="q">${head}${needWorld ? (ap.world && !ap.world.error ? `<p class="sm">Approve in World App (<a href="${esc(ap.world.verificationUriComplete)}" target="_blank" rel="noopener" data-world>open</a>), code <b class="mono">${esc(ap.world.userCode)}</b>. Waiting…</p><div class="row"><button class="ghost" id="suDeny">Deny</button></div>` : `${ap.world?.error ? `<p class="err">${esc(clean(ap.world.error))}</p>` : ""}<div class="row"><button id="suWorld">Verify with World ID</button><button class="ghost" id="suDeny">Deny</button></div>`) : `<div class="row"><button id="suSign">Sign ${units(ap.amount)}</button><button class="ghost" id="suDeny">Deny</button></div>`}</div>`;
   if ($("suWorld")) $("suWorld").onclick = async () => { popWorld(); const w = await json(`/api/approvals/${ap.id}/world`, {}).catch(() => ({})); if (w.world?.verificationUriComplete) popWorld(w.world.verificationUriComplete); stepKey = ""; };
   if ($("suSign")) $("suSign").onclick = async () => { $("suSign").disabled = true; try { closeWorld(); await json(`/api/approvals/${ap.id}/approve`, { walletTx: isHP() ? await hpSign({ approvalId: ap.id }) : undefined }); } catch (e) { $("agentMsg").insertAdjacentHTML("beforeend", `<p class="err">${esc(e.message || e)}</p>`); $("suSign").disabled = false; } };
   if ($("suDeny")) $("suDeny").onclick = () => json(`/api/approvals/${ap.id}/deny`, {}).catch(() => {});

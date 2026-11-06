@@ -293,8 +293,10 @@ async function decide(ap, decision, walletTx, account) {
   const id = ap.ref, p = row(id);
   if (Date.now() > ap.expires_at) { set("expired"); return { status: 200, body: await expireStepup(ap) }; }
   if (decision !== "approve") { set("denied"); await L.cancelSchedule(ap.schedule_id); return { status: 200, body: await finish(id, "denied", "human denied, no payment") }; }
+  // A step-up is the agent asking to pay above the user's "ask me" amount: a human checkpoint. Only a World ID check
+  // (for this approval, or the owner's recent World session) passes it; a Google account alone never does.
   const session = m.world === "live" && covered(ap);
-  if (m.world === "live" && !ap.verified && !session && !google) return { status: 403, body: { error: "World login is not verified" } };
+  if (m.world === "live" && !ap.verified && !session) return { status: 403, body: { error: "verify with World ID first" } };
   const it = intent(p.intent_id), base = await getListing(p.listing_key), l = base && withQuote(base, p.quote ? JSON.parse(p.quote) : null), input = p.result ? JSON.parse(p.result).input : null;
   const changed = !l || fingerprint(l, input, it.id) !== ap.fingerprint || it.state !== "active";
   // The user's signature is what moves the money, so the Guard waits to see it executed on-chain.
