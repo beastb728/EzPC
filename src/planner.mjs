@@ -8,7 +8,9 @@ import { shopById, showUsdc } from "./pc-catalog.mjs";
 
 export const WANTED = 3; // options per recommendation, when enough matching inventory exists
 const str = (o) => JSON.parse(JSON.stringify(o, (_, x) => (typeof x === "bigint" ? String(x) : x)));
-const line = (o) => ({ category: o.category, offerId: o.offerId, sellerId: o.sellerId, productId: o.productId, brand: o.brand, model: o.model, condition: o.condition, warrantyMonths: o.warrantyMonths, unitPrice: o.priceUnits, qty: 1, deliveryFeeUnits: o.deliveryFeeUnits, freeOverUnits: o.freeOverUnits, deliveryDays: o.deliveryDays, specs: o.specs, entityKey: o.entityKey ?? null });
+// When a price stops being valid (ms): the earlier of the offer's Arkiv expiry and the shop's own validUntil.
+const priceExpiry = (o) => { const t = [o.expiresAt, o.validUntil * 1000].filter((x) => Number.isFinite(x) && x > 0); return t.length ? Math.min(...t) : null; };
+const line = (o) => ({ expiresAt: priceExpiry(o), category: o.category, offerId: o.offerId, sellerId: o.sellerId, productId: o.productId, brand: o.brand, model: o.model, condition: o.condition, warrantyMonths: o.warrantyMonths, unitPrice: o.priceUnits, qty: 1, deliveryFeeUnits: o.deliveryFeeUnits, freeOverUnits: o.freeOverUnits, deliveryDays: o.deliveryDays, specs: o.specs, entityKey: o.entityKey ?? null });
 const shopName = (id) => shopById(id)?.name ?? id;
 
 function needs(req) {
@@ -67,7 +69,9 @@ function packageOf(c, req, budget, label) {
   const parts = { ...c.parts, ...c.ex }, checks = checkBuild(parts, n), all = Object.values(parts).map(line), cost = basketCost(all);
   const id = `${c.sellerId}:${createHash("sha256").update(all.map((l) => l.offerId).sort().join("|")).digest("hex").slice(0, 10)}`;
   const { why, tradeoffs } = explain({ ...c, checks }, req, budget);
-  return { id, label, exact: !c.relaxed.length, relaxed: c.relaxed, sellerId: c.sellerId, shopName: shopName(c.sellerId), components: all.filter((l) => CORE.includes(l.category)), peripherals: all.filter((l) => !CORE.includes(l.category)), checks, compatible: compatible(checks), cost, perf: c.perf, why, tradeoffs };
+  // The package's prices hold only as long as its first part to expire.
+  const ends = all.map((l) => l.expiresAt).filter((x) => x != null), pricesValidUntil = ends.length ? Math.min(...ends) : null;
+  return { id, label, pricesValidUntil, exact: !c.relaxed.length, relaxed: c.relaxed, sellerId: c.sellerId, shopName: shopName(c.sellerId), components: all.filter((l) => CORE.includes(l.category)), peripherals: all.filter((l) => !CORE.includes(l.category)), checks, compatible: compatible(checks), cost, perf: c.perf, why, tradeoffs };
 }
 
 // Main entry. req has gone through requirements.withDefaults; offers is { cpu: [...], motherboard: [...], ... } and should

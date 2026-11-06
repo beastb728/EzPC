@@ -85,6 +85,8 @@ a.get("/api/pc/sellers", h(async (_, r) => pass(r, await get(url("agent", "/pc/s
 a.post("/api/pc/negotiate", h(async (q, r) => pass(r, await post(url("agent", "/pc/negotiate"), { requestId: q.body?.requestId, packageId: q.body?.packageId }, T))));
 a.post("/api/pc/negotiations", h(async (q, r) => pass(r, await post(url("agent", "/pc/negotiations"), { requestId: q.body?.requestId, packageId: q.body?.packageId }, T))));
 a.get("/api/pc/negotiations/:id", h(async (q, r) => pass(r, await get(url("agent", `/pc/negotiations/${enc(q.params.id)}`), T))));
+// A negotiated quote as the shop holds it: price, expiry and its Arkiv entry once published (no secrets in it).
+a.get("/api/pc/quotes/:id", h(async (q, r) => { const x = await get(url("sellers", `/quotes/${enc(q.params.id)}`)); if (x.status !== 200) return pass(r, x); const b = x.body; r.json({ id: b.id, price: b.price, listPrice: b.listPrice, expiresAt: b.expiresAt, arkiv: b.arkiv ?? null, entityKey: b.entityKey ?? null }); }));
 a.post("/api/pc/checkout", h(async (q, r) => pass(r, await post(url("guard", "/orders"), { requestId: q.body?.requestId, packageId: q.body?.packageId, quoteId: q.body?.quoteId }, T))));
 a.get("/api/pc/orders/:id", h(async (q, r) => pass(r, await get(url("guard", `/orders/${enc(q.params.id)}`), T))));
 a.post("/api/pc/orders/:id/deliver", h(async (q, r) => pass(r, await post(url("guard", `/orders/${enc(q.params.id)}/deliver`), {}, T))));

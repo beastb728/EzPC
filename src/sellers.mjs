@@ -8,6 +8,7 @@ import { ASSET } from "./asset.mjs";
 import { sellerAgent } from "./a2a.mjs";
 import { badRequirements, recommend } from "./recommend.mjs";
 import { SHOPS } from "./pc-catalog.mjs";
+import { publishQuote } from "./quote-board.mjs";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 const fac = new HTTPFacilitatorClient({ url: process.env.X402_URL });
@@ -45,6 +46,13 @@ const remember = (out) => {
 };
 for (const shop of SHOPS) a.use(`/a2a/shops/${shop.sellerId}`, sellerAgent({
   name: shop.name, baseUrl: url("sellers", `/a2a/shops/${shop.sellerId}`), quotes,
+  // Every agreed price is also published on Arkiv by the shop's own wallet, in the background. The quote works either way.
+  onQuote: (q) => {
+    const mark = (x) => { const cur = quotes.get(q.id); if (cur) quotes.set(q.id, { ...cur, ...x }); };
+    mark({ arkiv: "publishing" });
+    publishQuote(shop.sellerId, q).then((p) => mark({ arkiv: p.source, entityKey: p.entityKey }))
+      .catch((e) => { mark({ arkiv: "failed" }); console.error(`[sellers] quote ${q.id.slice(0, 8)} not published on Arkiv: ${String(e.shortMessage ?? e.message).split("\n")[0]}`); });
+  },
   lookup: (key) => { const p = packages.get(key); return p && p.sellerId === shop.sellerId ? { key, name: `${shop.name} ${p.label}`, priceTinybars: p.cost.total, floor: shop.haggle.floor, persona: shop.haggle.persona, unit: PC_UNIT } : null; },
 }));
 // Refuse an order that can't be fulfilled before asking for payment, so nobody pays for an empty result.

@@ -2,13 +2,14 @@
 
 Network: **Rabdi testnet** (chain ID 7794095), written with `@arkiv-network/sdk`. Explorer: https://rabdi.explorer.arkiv.network
 
-Four entity types. Every one has an owner wallet and an expiry, and the app checks the owner on every read.
+Five entity types. Every one has an owner wallet and an expiry, and the app checks the owner on every read. The app shows the expiry to users as a time to live: how long each price stays valid, and a live countdown on a negotiated quote.
 
 | Entity | Owner (writer wallet) | Expiry | Live now |
 |---|---|---|---|
 | `ethpc.pc-offers.v1`: one product a shop sells | That shop's own wallet (one wallet per shop) | 7 days, renewable by the shop (`npm run shop -- renew`) | 44 |
 | `ethpc.pc-sellers.v1`: a shop's profile | That shop's own wallet | 30 days | 3 |
 | `ethpc.pc-reviews.v2`: a review of a shop | The review publisher wallet | 90 days, for every review | 32 |
+| `ethpc.pc-quotes.v1`: a price two agents agreed over A2A | That shop's own wallet | Exactly as long as the quote is honoured (5 minutes), readonly | Only while a quote is live |
 | `ethpc.listings.usdc`: a paid API's listing (price, endpoint, payee) | The approved service owner wallet | 1 day; re-published before a demo | 12 (incl. `pc-recommend`) |
 
 ## Writer wallets
@@ -48,6 +49,9 @@ Four entity types. Every one has an owner wallet and an expiry, and the app chec
 v2 stores `text` as a plain string so the review reads as written on the explorer; v1 stored it as bytes, which the explorer only shows as a hash. All v1 reviews were copied to v2 (same text, rating, labels and remaining lifetime) and the v1 entries deleted. In the app, every review links to its entry on the explorer.
 
 31 of the 32 live reviews are **sample reviews seeded by the team** (`kind = "sample"`, `npm run seed:reviews`) so the ratings aren't empty at launch. Reviews written through the app after a World ID check carry `human = "world-verified"`.
+
+### `ethpc.pc-quotes.v1` (`src/quote-board.mjs`)
+`quoteId` (indexed), `sellerId` (indexed), `packageId` (indexed), `price` and `listPrice` (u64, in USDC units), `unit`, `agreedAt` (u64), `expiresAt` (u64, indexed). When a shop's agent accepts a price, the shop publishes the quote from its own wallet in the background (`start.mjs` gives the sellers service only the `SHOP_*_ARKIV_PRIVATE_KEY` keys, nothing else). It's created **readonly**, so the agreed price can never be edited, and its Arkiv lifetime is the time left on the quote, rounded down to whole 2 s blocks, so the entry never outlives the deal. Checkout shows a countdown with a link to the entry; when it reaches zero the price returns to the list price and Arkiv drops the entry on its own. Checkout still trusts the shop's own copy of the quote; the Arkiv entry is the public record of it.
 
 ### `ethpc.listings.usdc` (`src/directory.mjs`)
 `lk` (listing key, indexed), `name`, `category` (indexed), `region` (indexed), `priceTinybars` (price in USDC's smallest unit, indexed string), `freshnessMinutes` (indexed), `endpoint`, `hederaPayTo`. The agent finds the paid recommendation API here (`lk = "pc-recommend"`), and only listings owned by an approved wallet count.

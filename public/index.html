@@ -125,6 +125,8 @@ ul.checks{margin:8px 0 0;padding:0;list-style:none}ul.checks li{padding:2px 0}ul
 .v-likely{color:var(--green)}.v-borderline{color:var(--amber)}.v-unlikely{color:var(--red)}
 table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:8px 0;border-top:1px solid var(--line);text-align:left;vertical-align:top}th{font-weight:600;color:var(--mut);font-size:11px;letter-spacing:.06em;text-transform:uppercase;border-top:0}
 td+td,th+th{padding-left:12px}td.n,th.n{text-align:right;white-space:nowrap}tr.total td{font-weight:700;font-size:14px}
+.ttl{font-size:12px;color:var(--mut);white-space:nowrap;margin-left:6px}.ttl.soon{color:var(--amber);font-weight:600}.opt-meta .ttl{margin-left:0;font-size:inherit}
+.qttl{font-size:13px;margin:4px 0 0;color:var(--mut)}.qttl b{font-variant-numeric:tabular-nums;color:var(--ink)}.qttl.soon,.qttl.soon b{color:var(--amber)}
 .rev{border-top:1px solid var(--line);padding:9px 0}.arklink{font-size:12px;white-space:nowrap;margin-left:6px}.arknote{margin:10px 0 0}.rev .stars{color:#f5a524;letter-spacing:1px}
 .log{border-radius:6px;padding:6px 12px;margin-top:10px;max-height:220px;overflow:auto;font-size:12.5px;background:var(--bg);border:1px solid var(--line)}.log:empty{display:none}
 .log div{padding:5px 0;border-bottom:1px solid var(--line)}.log div:last-child{border:0}.log .good{color:var(--green)}.log .bad{color:var(--red)}.log .pause{color:var(--amber)}
@@ -202,6 +204,10 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const usd = (u) => `${(Number(u) / 1e6).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Time to live: every price is an Arkiv entry that expires. left() reads the time remaining; ttl() shows it, amber under a day.
+const left = (t) => { const s = Math.floor((t - Date.now()) / 1000); if (s <= 0) return "expired"; const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60); return d ? `${d} d ${h} h` : h ? `${h} h ${m} min` : m ? `${m} min` : "under a minute"; };
+const ttl = (t, pre = "") => t ? `<span class="ttl${t - Date.now() < 86400_000 ? " soon" : ""}" title="Valid until ${new Date(t).toLocaleString()}">⏱ ${pre}${left(t)}</span>` : "";
+const clock = (t) => { const s = Math.max(0, Math.ceil((t - Date.now()) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 const json = async (url, body) => { const r = await fetch(url, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw Object.assign(new Error(j.error ?? `HTTP ${r.status}`), { status: r.status, body: j }); return j; };
 const HS = "https://hashscan.io/testnet/transaction/";
 const txLink = (t) => !t ? "-" : /^SIM/.test(t) ? `<span class="mono">${esc(t)}</span>` : /^schedule:/.test(t) ? `<span class="mono">${esc(t)}</span>` : `<a class="mono" href="${HS}${encodeURIComponent(String(t).replace("@", "-").replace(/\.(\d+)$/, "-$1"))}" target="_blank" rel="noopener">${esc(t)} ↗</a>`;
@@ -525,7 +531,8 @@ const arkivLink = (k) => arkivUrl(k) ? `<a class="arklink" href="${arkivUrl(k)}"
 const ratingText = (r) => r?.average != null ? `★ ${r.average.toFixed(1)} from ${r.count} World ID verified review${r.count === 1 ? "" : "s"}` : "No recent reviews";
 const VERDICT = { likely: "Likely to reach", borderline: "Borderline for", unlikely: "Unlikely to reach" };
 const VPILL = { likely: "ok", borderline: "ask", unlikely: "no" };
-let RES = null;
+let RES = null, QTICK = null;
+const QWATCH = new Set();
 function results(rid, res) {
   RES = { rid, res };
   if (!res.packages.length) { $("results").innerHTML = `<div class="fail"><b>No PC could be put together.</b> ${esc(clean(res.constraint))}</div><div class="row"><a href="/">Change the request</a></div>`; return; }
@@ -535,13 +542,13 @@ function results(rid, res) {
       const c = Object.fromEntries(b.components.map((l) => [l.category, l])), alt = !!b.relaxed?.length;
       const rows = [["CPU", c.cpu], ["GPU", c.gpu], ["RAM", c.ram], ["Storage", c.storage], ...b.peripherals.map((l) => [cat(l.category), l])].filter(([, l]) => l);
       return `<article class="sec opt"><div class="sec-h"><div class="name"><b>${esc(b.shopName)}</b><span>${esc(b.label)}</span></div><span class="price">${usd(b.cost.total)}</span></div>
-        <div class="sec-b"><div class="opt-meta"><span class="pill ${VPILL[b.perf.verdict] ?? ""}">${esc(VERDICT[b.perf.verdict] ?? b.perf.verdict)} ${esc(b.perf.target ?? "")}</span><span>${ratingText(b.sellerRating)}</span><span>Including ${b.cost.delivery === "0" ? "free delivery" : `${usd(b.cost.delivery)} delivery`}</span></div>
+        <div class="sec-b"><div class="opt-meta"><span class="pill ${VPILL[b.perf.verdict] ?? ""}">${esc(VERDICT[b.perf.verdict] ?? b.perf.verdict)} ${esc(b.perf.target ?? "")}</span><span>${ratingText(b.sellerRating)}</span><span>Including ${b.cost.delivery === "0" ? "free delivery" : `${usd(b.cost.delivery)} delivery`}</span>${ttl(b.pricesValidUntil, "Prices valid for ")}</div>
         ${alt ? `<div class="relaxed"><b>Closest alternative. It relaxes:</b><ul>${b.relaxed.map((r) => `<li>${esc(clean(r))}</li>`).join("")}</ul></div>` : ""}
         <dl class="specs">${rows.map(([k, l]) => `<div><dt>${k}</dt><dd>${line(l)}</dd></div>`).join("")}</dl>
         <p class="why1">${esc(clean(b.why[1] ?? b.why[0]))}</p></div>
         <div class="opt-foot"><div class="disc"><button class="textbtn" data-panel="why${i}" aria-expanded="false">Why it fits</button><button class="textbtn" data-panel="all${i}" aria-expanded="false">All components</button><button class="textbtn" data-panel="rev${i}" data-seller="${esc(b.sellerId)}" aria-expanded="false">Seller reviews</button></div><button data-pick="${esc(b.id)}">Select this PC</button></div>
         <div class="dpanel" id="why${i}" hidden><ul class="why">${b.why.map(clean).filter(Boolean).map((w) => `<li>${esc(w)}</li>`).join("")}</ul><ul class="why trade">${b.tradeoffs.map(clean).filter(Boolean).map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>
-        <div class="dpanel" id="all${i}" hidden><table>${[...b.components, ...b.peripherals].map((l) => `<tr><td>${line(l)}${l.condition !== "new" ? ` <span class="v-borderline">(${esc(l.condition)}, ${l.warrantyMonths} mo)</span>` : ""}${arkivLink(l.entityKey)}</td><td class="mut">${cat(l.category)}</td><td class="n">${usd(l.unitPrice)}</td></tr>`).join("")}</table>${[...b.components, ...b.peripherals].some((l) => arkivLink(l.entityKey)) ? `<p class="sm mut arknote">Each part is a live listing the shop published on Arkiv from its own wallet. Open one to check its price, stock and owner on chain.</p>` : ""}<ul class="checks">${b.checks.map((k) => `<li class="${k.ok ? "" : "bad"}">${k.ok ? "✓" : "✗"} ${esc(k.check)}: ${esc(k.detail)}</li>`).join("")}</ul></div>
+        <div class="dpanel" id="all${i}" hidden><table>${[...b.components, ...b.peripherals].map((l) => `<tr><td>${line(l)}${l.condition !== "new" ? ` <span class="v-borderline">(${esc(l.condition)}, ${l.warrantyMonths} mo)</span>` : ""}${arkivLink(l.entityKey)}</td><td class="mut">${cat(l.category)}</td><td class="n">${usd(l.unitPrice)}${l.expiresAt ? `<br>${ttl(l.expiresAt)}` : ""}</td></tr>`).join("")}</table>${[...b.components, ...b.peripherals].some((l) => arkivLink(l.entityKey)) ? `<p class="sm mut arknote">Each part is a live listing the shop published on Arkiv from its own wallet. Open one to check its price, stock and owner on chain. ⏱ is how long the price stays valid: Arkiv removes the listing when it runs out, unless the shop renews it.</p>` : ""}<ul class="checks">${b.checks.map((k) => `<li class="${k.ok ? "" : "bad"}">${k.ok ? "✓" : "✗"} ${esc(k.check)}: ${esc(k.detail)}</li>`).join("")}</ul></div>
         <div class="dpanel" id="rev${i}" hidden><div class="mut" style="padding-top:10px">Loading…</div></div></article>`;
     }).join("")}`;
   document.querySelectorAll("[data-pick]").forEach((el) => el.onclick = () => checkout(el.dataset.pick));
@@ -563,7 +570,7 @@ function celebrate(list, price, shop) {
   const pct = (Number(saved) * 100 / Number(list)).toFixed(1), colors = ["#2f5be7", "#15803d", "#f5a524", "#d92d20"];
   const bits = Array.from({ length: 20 }, (_, i) => { const a = (i / 20) * Math.PI * 2, r = 90 + (i % 3) * 35; return `<i style="--x:${Math.round(Math.cos(a) * r)}px;--y:${Math.round(Math.sin(a) * r)}px;--c:${colors[i % 4]};--d:${(i % 5) * 40}ms"></i>`; }).join("");
   d.innerHTML = `<div class="cg"><div class="burst" aria-hidden="true">${bits}</div><div class="cg-ic" aria-hidden="true">✓</div><h2 id="congTitle">Congratulations!</h2><p class="mut">Your agent negotiated a better price with ${esc(shop)}'s agent.</p>
-    <div class="cg-save">You save ${usd(saved)}</div><p class="cg-prices"><s>${usd(list)}</s> → <b>${usd(price)}</b> (${pct}% off)</p><button id="congOk">Continue to checkout</button></div>`;
+    <div class="cg-save">You save ${usd(saved)}</div><p class="cg-prices"><s>${usd(list)}</s> → <b>${usd(price)}</b> (${pct}% off)</p><p class="sm mut">The shop holds this price for 5 minutes.</p><button id="congOk">Continue to checkout</button></div>`;
   d.showModal(); $("congOk").onclick = () => d.close(); $("congOk").focus();
 }
 async function checkout(pid) {
@@ -571,12 +578,32 @@ async function checkout(pid) {
   const existing = (await json(`/api/pc/orders?search=${RES.rid}`).catch(() => [])).find((o) => o.packageId === pid);
   if (existing) { S.order = existing.orderId; save(); location.href = `/order?id=${encodeURIComponent(existing.orderId)}`; return; }
   const quote = () => { const q = S.quotes?.[pid]; return q && q.expiresAt > Date.now() ? q : null; };
+  // The shop publishes the agreed quote on Arkiv in the background; fetch its entry key once it lands.
+  const watchQuote = async (id) => {
+    if (QWATCH.has(id)) return; QWATCH.add(id);
+    for (let i = 0; i < 25 && S.quotes?.[pid]?.id === id; i++) {
+      const x = await json(`/api/pc/quotes/${encodeURIComponent(id)}`).catch(() => null);
+      if (x && S.quotes?.[pid]?.id === id) { S.quotes[pid] = { ...S.quotes[pid], arkiv: x.arkiv, entityKey: x.entityKey }; save(); }
+      if (!x || ["arkiv", "simulated", "failed"].includes(x.arkiv)) break;
+      await sleep(1500);
+    }
+    QWATCH.delete(id);
+  };
+  // Ticks the quote's countdown every second. At 0:00 the negotiated price is gone and checkout is back at the list price.
+  const tick = () => {
+    const el = $("qttl"); if (!el || !$("dlg").open) return clearInterval(QTICK);
+    const q = quote();
+    if (!q) { clearInterval(QTICK); const onArkiv = !!arkivUrl(S.quotes?.[pid]?.entityKey); if (S.quotes?.[pid]) { delete S.quotes[pid]; save(); } return render(`<div class="bad">The negotiated price ran out after 5 minutes, so checkout is back at the list price.${onArkiv ? " Its Arkiv entry expired on its own." : ""} You can negotiate again.</div>`); }
+    el.className = `qttl${q.expiresAt - Date.now() < 60_000 ? " soon" : ""}`;
+    el.innerHTML = `⏱ Price held for <b>${clock(q.expiresAt)}</b>${arkivUrl(q.entityKey) ? ` · <a href="${arkivUrl(q.entityKey)}" target="_blank" rel="noopener">see the deal on Arkiv ↗</a>` : q.arkiv === "publishing" || !q.arkiv ? ` · <span class="sm">publishing on Arkiv…</span>` : ""}`;
+  };
   const render = (log = "", live = false) => {
+    clearInterval(QTICK);
     const q = quote();
     dlg(`<h2>Checkout</h2><p class="sm mut" style="margin:2px 0 0">${esc(b.label)} from ${esc(b.shopName)}. ${ratingText(b.sellerRating)}</p>
       <table><tr><th>Part</th><th class="n">Price</th></tr>${[...b.components, ...b.peripherals].map((l) => `<tr><td>${line(l)}</td><td class="n">${usd(l.unitPrice)}</td></tr>`).join("")}<tr><td class="mut">Delivery</td><td class="n">${b.cost.delivery === "0" ? "free" : usd(b.cost.delivery)}</td></tr></table>
       <div class="dtotal">${q ? `${usd(q.price)}<span class="price-old">${usd(b.cost.total)}</span>` : usd(b.cost.total)}</div>
-      <div style="margin:2px 0">${q ? `<p class="sm" style="margin:0;color:var(--green)">✓ Price your agent negotiated with the shop's agent. The shop confirms it at checkout.</p>`
+      <div style="margin:2px 0">${q ? `<p class="sm" style="margin:0;color:var(--green)">✓ Price your agent negotiated with the shop's agent. The shop confirms it at checkout.</p><p class="qttl" id="qttl" role="timer" aria-live="off"></p>`
         : live ? `<div class="nego-live" role="status"><span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>Your agent is negotiating with ${esc(b.shopName)}'s agent…</div>`
         : `<button class="nego" id="nego">${svg(I.sparkle, 16)}Let my agent negotiate a better price</button><span class="nego-note">Your agent haggles with the shop's agent (A2A). You still decide whether to pay.</span>`}</div><div class="log${live ? " live" : ""}" id="negoLog" aria-live="polite">${log}</div>
       <div class="paycard"><div class="chip-g"></div><div class="num">4242 4242 4242 4242</div><div class="lb">Card ending in 4242</div></div>
@@ -607,6 +634,7 @@ async function checkout(pid) {
       try { const o = await json("/api/pc/checkout", { requestId: RES.rid, packageId: pid, quoteId: quote()?.id }); S.order = o.orderId; save(); location.href = `/order?id=${encodeURIComponent(o.orderId)}`; }
       catch (e) { if (/quote|negotiated/i.test(e.message)) { delete S.quotes[pid]; save(); } $("payErr").textContent = e.message; $("pay").disabled = false; $("pay").textContent = "Pay with credit card"; }
     };
+    if (q) { tick(); QTICK = setInterval(tick, 1000); if (!q.entityKey) watchQuote(q.id); }
   };
   render();
 }

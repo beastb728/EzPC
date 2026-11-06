@@ -54,6 +54,8 @@ Status: ✅ live on testnet (Hedera / Arkiv / World) · 🧪 covered by tests in
 | Reviews on Arkiv with a 90-day expiry; rating from active reviews only (`ethpc.pc-reviews.v2`, text readable on the explorer) | ✅ | `src/reviews.mjs` |
 | Paid API discovery: the recommendation service's listing, price and payee (`ethpc.listings.usdc`); impostor listings ignored | ✅ | `src/directory.mjs` |
 | A query anyone can run with no keys | ✅ | `arkiv/query.mjs` |
+| **Price time to live:** every part shows how long its price stays valid (⏱, amber under a day), and each PC option shows when its prices run out (its first part to expire). The time is the earlier of the offer's Arkiv expiry and the shop's `validUntil` | 🧪 | `src/planner.mjs`, `public/index.html` |
+| **Negotiated quotes on Arkiv:** the price two agents agree is published by the shop's own wallet as a readonly entry that lives exactly as long as the quote (5 minutes, `ethpc.pc-quotes.v1`). Checkout shows a live countdown with a link to it; at zero the price returns to list and Arkiv drops the entry. The sellers service gets only the shops' own Arkiv keys for this | ✅ | `src/quote-board.mjs`, `src/sellers.mjs`, `public/index.html` |
 | **View on Arkiv** links: every part in a PC option and every shop review links to its entry on the public explorer (`rabdi.explorer.arkiv.network/entity/<key>`), so anyone can check it's really on chain | ✅ | `public/index.html`, `src/planner.mjs` |
 
 ## Agents

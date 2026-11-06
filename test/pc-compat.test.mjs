@@ -139,3 +139,22 @@ test("A2 used parts only appear when the user allows them", async () => {
   assert.ok(!(await searchOffers({ category: "gpu", condition: "new" })).some((o) => o.condition === "used"));
   assert.ok((await searchOffers({ category: "gpu", condition: "any" })).some((o) => o.condition === "used"));
 });
+
+test("T1 every part carries when its price expires, and a package's prices hold until its first part expires", async () => {
+  const p = await plan(EXAMPLE, { render: "upscaled", region: "IN" });
+  for (const b of p.packages) {
+    const lines = [...b.components, ...b.peripherals];
+    assert.ok(lines.every((l) => Number.isFinite(l.expiresAt) && l.expiresAt > Date.now()), "each part has a future expiry");
+    assert.equal(b.pricesValidUntil, Math.min(...lines.map((l) => l.expiresAt)));
+  }
+});
+test("T2 a negotiated quote's Arkiv entry never outlives the quote, in whole 2 s blocks; simulated mode publishes nothing", async () => {
+  const { quoteSeconds, publishQuote } = await import("../src/quote-board.mjs");
+  const now = 1_000_000;
+  assert.equal(quoteSeconds(now + 300_000, now), 300);
+  assert.equal(quoteSeconds(now + 299_500, now), 298, "rounded down, never past the quote");
+  assert.equal(quoteSeconds(now + 1_000, now), 2, "at least one block");
+  assert.equal(quoteSeconds(now + 299_500, now) % 2, 0);
+  const out = await publishQuote("voltforge", { id: "q-test", listing: "pkg:x", price: "1", listPrice: "2", asset: "display-USDC", expiresAt: Date.now() + 300_000 });
+  assert.deepEqual(out, { entityKey: "sim:quote:q-test", source: "simulated" });
+});

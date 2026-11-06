@@ -21,7 +21,8 @@ export const QUOTE_TTL_MS = 5 * 60_000;
 
 // Seller side: one A2A agent per listing, mounted at /a2a/<key>, or one per shop that looks listings up by key
 // (lookup), for PC packages. The floor never leaves the seller.
-export function sellerAgent({ listing, lookup, name, baseUrl, quotes }) {
+// onQuote (optional) is told about every agreed quote, e.g. to publish it on Arkiv; it must not block the reply.
+export function sellerAgent({ listing, lookup, name, baseUrl, quotes, onQuote }) {
   const find = lookup ?? ((k) => (k === listing.key ? listing : null));
   const title = name ?? listing.name;
   const card = {
@@ -33,7 +34,7 @@ export function sellerAgent({ listing, lookup, name, baseUrl, quotes }) {
   };
   // Remembers its last counter per conversation, so a higher offer from the buyer never makes its counter go up.
   const lastCounter = new Map(), rounds = new Map();
-  const quote = (l, price) => { const q = { id: randomUUID(), listing: l.key, price: String(price), listPrice: String(l.priceTinybars), payTo: l.hederaPayTo ?? null, asset: l.unit ? `display-${l.unit.symbol}` : ASSET.id, expiresAt: Date.now() + QUOTE_TTL_MS }; quotes.set(q.id, q); return q; };
+  const quote = (l, price) => { const q = { id: randomUUID(), listing: l.key, price: String(price), listPrice: String(l.priceTinybars), payTo: l.hederaPayTo ?? null, asset: l.unit ? `display-${l.unit.symbol}` : ASSET.id, expiresAt: Date.now() + QUOTE_TTL_MS }; quotes.set(q.id, q); try { onQuote?.(q); } catch {} return q; };
   const executor = {
     cancelTask: async () => {},
     async execute(ctx, bus) {

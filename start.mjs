@@ -1,5 +1,6 @@
 // Starts every service as its own process. Each gets only the key it needs:
-// the Guard gets the Guard account key, the dashboard gets the demo user-wallet key, and the agent and sellers get none.
+// the Guard gets the Guard account key, the dashboard gets the demo user-wallet key, the sellers get only each shop's own
+// Arkiv key (to publish negotiated quotes), and the agent gets none.
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -20,7 +21,7 @@ const run = (file, env, port) => new Promise((ok, no) => {
 });
 const only = (...k) => Object.fromEntries(k.filter((x) => process.env[x]).map((x) => [x, process.env[x]]));
 if (!live) await run("src/fac-sim.mjs", common, PORTS.fac);
-await run("src/sellers.mjs", common, PORTS.sellers);
+await run("src/sellers.mjs", { ...common, ...only(...Object.keys(process.env).filter((k) => /^SHOP_[A-Z0-9]+_ARKIV_PRIVATE_KEY$/.test(k))) }, PORTS.sellers);
 await run("src/guard.mjs", { ...common, ...only("GUARD_PRIVATE_KEY", "ARKIV_PRIVATE_KEY") }, PORTS.guard);
 await run("src/agent.mjs", common, PORTS.agent);
 // With HashPack the user signs in their wallet, so the dashboard never receives the user's key.
