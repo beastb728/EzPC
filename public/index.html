@@ -158,11 +158,22 @@ dialog::backdrop{background:rgb(16 24 40 / .45)}dialog[open]{animation:rise .22s
 .dlg{padding:22px 24px}.dlg h2{font-size:18px;font-weight:700}.dlg .x{float:right;background:none;border:0;color:var(--mut);font-size:22px;line-height:1;padding:2px 6px}.dlg .x:hover{background:var(--bg);color:var(--ink)}
 .dlg table{margin-top:14px}
 .dtotal{font-size:26px;font-weight:700;margin:16px 0 2px;letter-spacing:-.01em}.price-old{text-decoration:line-through;color:var(--faint);font-size:15px;font-weight:500;margin-left:8px}
-.democard{margin:16px 0 12px;border-radius:12px;padding:16px 18px;color:#fff;background:linear-gradient(135deg,#1d2b53,#2f5be7);position:relative}
-.democard .chip-g{width:34px;height:24px;border-radius:5px;background:linear-gradient(180deg,#f3d27a,#c9a227);margin-bottom:14px}
-.democard .num{font:500 17px var(--mono);letter-spacing:.12em;margin:0 0 6px}.democard .lb{font-size:12px;opacity:.75}
-.democard .stamp{position:absolute;top:14px;right:16px;font-size:11px;font-weight:700;border:1px solid rgb(255 255 255 / .6);border-radius:4px;padding:2px 7px}
+.paycard{margin:16px 0 12px;border-radius:12px;padding:16px 18px;color:#fff;background:linear-gradient(135deg,#1d2b53,#2f5be7);position:relative}
+.paycard .chip-g{width:34px;height:24px;border-radius:5px;background:linear-gradient(180deg,#f3d27a,#c9a227);margin-bottom:14px}
+.paycard .num{font:500 17px var(--mono);letter-spacing:.12em;margin:0 0 6px}.paycard .lb{font-size:12px;opacity:.75}
+.paycard .stamp{position:absolute;top:14px;right:16px;font-size:11px;font-weight:700;border:1px solid rgb(255 255 255 / .6);border-radius:4px;padding:2px 7px}
 .dlg .pay button{width:100%;padding:13px;font-size:14px}
+dialog.cong{max-width:420px;overflow:visible;text-align:center}
+.cg{position:relative;padding:34px 28px 26px}
+.cg-ic{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:var(--green-w);color:var(--green);display:grid;place-items:center;font-size:30px;font-weight:700;animation:cgpop .5s cubic-bezier(.2,1.6,.4,1)}
+.cg h2{font-size:22px;font-weight:800;letter-spacing:-.02em}.cg p{margin:6px 0 0}
+.cg-save{display:inline-block;margin:18px 0 6px;padding:10px 18px;border-radius:999px;background:var(--green-w);color:var(--green);font-size:24px;font-weight:800;letter-spacing:-.01em}
+.cg-prices{font-size:14px;color:var(--mut)}.cg-prices s{color:var(--faint)}.cg-prices b{color:var(--ink)}
+.cg button{width:100%;margin-top:22px;padding:13px;font-size:14px}
+.burst{position:absolute;left:50%;top:66px;width:0;height:0;pointer-events:none}
+.burst i{position:absolute;width:8px;height:12px;border-radius:2px;background:var(--c);opacity:0;animation:cgfly .9s ease-out var(--d) forwards}
+@keyframes cgpop{from{transform:scale(.4);opacity:0}}
+@keyframes cgfly{0%{transform:translate(0,0) rotate(0);opacity:1}100%{transform:translate(var(--x),var(--y)) rotate(220deg);opacity:0}}
 button.nego{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;padding:12px;font-size:14px;background:var(--blue-w);color:var(--blue);border:1.5px dashed var(--blue)}button.nego:hover:not(:disabled){background:#e0e8fd;border-color:var(--blue-h);color:var(--blue-h)}button.nego:disabled{background:var(--blue-w);border-color:var(--blue-s);color:var(--blue);opacity:.8}
 .nego-note{display:block;text-align:center;font-size:12px;color:var(--mut);margin-top:6px}
 
@@ -186,7 +197,7 @@ const usd = (u) => `${(Number(u) / 1e6).toLocaleString("en-US", { minimumFractio
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const json = async (url, body) => { const r = await fetch(url, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw Object.assign(new Error(j.error ?? `HTTP ${r.status}`), { status: r.status, body: j }); return j; };
 const HS = "https://hashscan.io/testnet/transaction/";
-const txLink = (t) => !t ? "-" : /^SIM/.test(t) ? `<span class="mono">${esc(t)}</span> <span class="mut">(simulated)</span>` : /^schedule:/.test(t) ? `<span class="mono">${esc(t)}</span>` : `<a class="mono" href="${HS}${encodeURIComponent(String(t).replace("@", "-").replace(/\.(\d+)$/, "-$1"))}" target="_blank" rel="noopener">${esc(t)} ↗</a>`;
+const txLink = (t) => !t ? "-" : /^SIM/.test(t) ? `<span class="mono">${esc(t)}</span>` : /^schedule:/.test(t) ? `<span class="mono">${esc(t)}</span>` : `<a class="mono" href="${HS}${encodeURIComponent(String(t).replace("@", "-").replace(/\.(\d+)$/, "-$1"))}" target="_blank" rel="noopener">${esc(t)} ↗</a>`;
 const EXAMPLES = ["Find me a gaming PC with a 4K monitor, within 4,000 USDC.", "A 1440p gaming PC for GTA 6 at 60 FPS, budget 1,500 USDC.", "Gaming and streaming PC with a keyboard and mouse, new parts only, 2,500 USDC."];
 const EX_LABEL = ["4K gaming + monitor, 4,000 USDC", "1440p for GTA 6 at 60 FPS, 1,500 USDC", "Gaming + streaming with peripherals, 2,500 USDC"];
 
@@ -202,7 +213,7 @@ const isHP = () => WAL.mode === "hashpack";
 const worldLive = () => STATUS?.modes.world === "live";
 const loadHP = () => hpLoad ??= new Promise((ok, no) => { const s = document.createElement("script"); s.src = "/hashpack.js"; s.onload = () => window.HashPack.init(WAL.projectId).then(ok, no); s.onerror = () => no(new Error("couldn't load the HashPack connector")); document.head.appendChild(s); }).catch((e) => { hpLoad = null; throw e; });
 const hpAcct = () => { try { return window.HashPack?.account() ?? null; } catch { return null; } };
-async function hpConnect() { await loadHP(); const a = hpAcct() || await window.HashPack.connect(WAL.projectId); if (a !== WAL.userId) throw new Error(`HashPack is connected to ${a}. Switch it to the demo wallet ${WAL.userId}.`); return a; }
+async function hpConnect() { await loadHP(); const a = hpAcct() || await window.HashPack.connect(WAL.projectId); if (a !== WAL.userId) throw new Error(`HashPack is connected to ${a}. Switch it to wallet ${WAL.userId}.`); return a; }
 async function hpSign(body) { const acc = await hpConnect(); const p = await json("/api/wallet/prepare", body); return window.HashPack.signAndExecute(acc, p.transaction); }
 const centred = (w, h) => `popup=yes,width=${w},height=${h},left=${Math.round(window.screenX + (window.outerWidth - w) / 2)},top=${Math.round(window.screenY + (window.outerHeight - h) / 2)}`;
 const popWorld = (href) => { if (!worldPop || worldPop.closed) worldPop = window.open("about:blank", "world-verify", centred(460, 720)); if (!worldPop) return false; if (href) { try { worldPop.opener = null; } catch {} worldPop.location.href = href; } return true; };
@@ -222,22 +233,24 @@ const I = {
 };
 const LOGO = `<a class="logo" href="/">${svg(I.chip, 22)}EthPC</a>`;
 let LOGIN = null;
+const clean = (t) => String(t ?? "").replace(/\s*\([^)]*(demo|simulat)[^)]*\)/gi, "").split(/(?<=[.!?])\s+/).filter((x) => !/demo|simulat/i.test(x)).join(" ").trim();
+const ref = (id) => String(id ?? "").replace(/\bDEMO-/g, "");
 const short = (id) => { const s = String(id ?? ""); return s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s; };
 async function renderLogin() {
   const was = LOGIN?.loggedIn; LOGIN = await json("/api/login").catch(() => null); const box = $("login"); if (!box || !LOGIN) return;
   if (location.pathname === "/build" && LOGIN.loggedIn && !was && $("gLogin")) next();
   if (document.body.dataset.page !== "landing") { STATUS = (await json("/api/status").catch(() => null)) ?? STATUS; return renderAccount(); }
-  if (LOGIN.loggedIn) { box.innerHTML = `<span class="pill ok">✓ ${LOGIN.mode === "live" ? "World ID verified" : "Logged in (simulated World ID)"}</span><button class="link" id="logout">Log out</button>`; $("logout").onclick = async () => { await json("/api/logout", {}); renderLogin(); }; return; }
+  if (LOGIN.loggedIn) { box.innerHTML = `<span class="pill ok">✓ ${LOGIN.mode === "live" ? "World ID verified" : "Logged in with World ID"}</span><button class="link" id="logout">Log out</button>`; $("logout").onclick = async () => { await json("/api/logout", {}); renderLogin(); }; return; }
   if (LOGIN.world) { box.innerHTML = `<span class="sm">Approve in World App: <a href="${esc(LOGIN.world.verificationUriComplete)}" target="_blank" rel="noopener" data-world>open</a>, code <b class="mono">${esc(LOGIN.world.userCode)}</b></span>`; later(renderLogin, 2000); return; }
   closeWorld();
-  box.innerHTML = `${LOGIN.error ? `<span class="sm v-unlikely">${esc(LOGIN.error)}</span>` : ""}<button class="link" id="loginBtn">Log in</button>`;
+  box.innerHTML = `${LOGIN.error ? `<span class="sm v-unlikely">${esc(clean(LOGIN.error))}</span>` : ""}<button class="link" id="loginBtn">Log in</button>`;
   $("loginBtn").onclick = loginClick;
 }
 async function loginClick() { const b = $("loginBtn"); if (b) b.disabled = true; try { if (worldLive()) popWorld(); const l = await json("/api/login/world", {}); if (l.world?.verificationUriComplete) popWorld(l.world.verificationUriComplete); else closeWorld(); } catch (e) { closeWorld(); alert(e.message); } renderLogin(); }
 function renderAccount() {
   const box = $("login"); if (!box) return;
-  const who = LOGIN?.loggedIn ? (LOGIN.who ?? (LOGIN.mode === "live" ? "World ID verified" : "Demo user")) : "Not logged in";
-  const via = LOGIN?.loggedIn ? `via World ID${LOGIN.mode === "live" ? "" : " (simulated)"}` : LOGIN?.world ? `Approve in World App, code <b class="mono">${esc(LOGIN.world.userCode)}</b>` : "Log in to let the agent run";
+  const who = LOGIN?.loggedIn ? (LOGIN.who ?? (LOGIN.mode === "live" ? "World ID verified" : "Verified user")) : "Not logged in";
+  const via = LOGIN?.loggedIn ? "via World ID" : LOGIN?.world ? `Approve in World App, code <b class="mono">${esc(LOGIN.world.userCode)}</b>` : "Log in to let the agent run";
   const wal = walletOk(), acct = isHP() ? hpAcct() : (STATUS?.userId ?? WAL.userId), bal = STATUS?.wallet?.balance, hbar = asset.symbol === "HBAR" ? null : STATUS?.wallet?.hbarForFees;
   box.innerHTML = `<div class="acct"><div class="avatar">${LOGIN?.loggedIn ? "W" : "?"}</div><div style="min-width:0;flex:1"><b>${esc(who)}</b><span class="via">${via}</span></div></div>
     ${LOGIN?.loggedIn || LOGIN?.world ? "" : `<div class="row"><button class="small" id="loginBtn">Log in with World ID</button></div>`}
@@ -250,7 +263,7 @@ function renderAccount() {
   if (LOGIN?.world && !LOGIN.loggedIn && location.pathname !== "/build") later(renderLogin, 2000);
 }
 async function resetDemo() {
-  if (!confirm("Reset the demo? This revokes the allowance, logs out of World ID, and clears searches, orders and reviews records.")) return;
+  if (!confirm("Reset everything? This revokes the allowance, logs out of World ID, and clears searches, orders and reviews records.")) return;
   try {
     const st = await json("/api/status").catch(() => null);
     if (isHP() && st?.wallet?.allowance && st.wallet.allowance !== "0") { await loadHP().catch(() => {}); if (hpAcct() === WAL.userId) await hpSign({ revoke: true }).catch((e) => alert(`Resetting, but the allowance is still set on Hedera (${e.message || e}). Revoke it in HashPack.`)); }
@@ -266,9 +279,9 @@ function shell(page, head, body) {
   document.body.innerHTML = `<div class="app">
     <aside class="side">${LOGO}<nav class="nav" aria-label="Main">${NAV.map(([h, t, ic]) => `<a href="${h}"${h === on ? ' class="on" aria-current="page"' : ""}>${svg(ic)}${t}</a>`).join("")}</nav>
       <div class="cards"><div class="mini" id="allowance"><div class="lb">x402 data budget</div><div class="big none">…</div></div><div class="mini" id="login"></div></div>
-      <button class="link reset" id="reset">Reset demo</button></aside>
+      <button class="link reset" id="reset">Reset</button></aside>
     <section class="work"><header class="work-head">${head}</header><div class="work-body">${body}</div></section>
-    </div><dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>`;
+    </div><dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog><dialog id="cong" class="cong" aria-labelledby="congTitle"></dialog>`;
   $("reset").onclick = resetDemo; renderLogin(); refreshAllowance();
   if (isHP() && S.walletOk && page !== "build") loadHP().then(renderAccount, () => {});
 }
@@ -301,7 +314,7 @@ function landing() {
     <div class="promptbox"><textarea id="prompt" aria-label="Describe the PC you want" placeholder="${esc(EXAMPLES[0])}">${esc(S.text)}</textarea>
       <div class="row"><span class="hint">Only your budget is required. Anything else gets a stated default.</span><button id="build">Build my PC</button></div></div>
     <div class="examples" aria-label="Example requests">${EX_LABEL.map((e, i) => `<button data-ex="${i}">${svg(I.sparkle, 13)}${esc(e)}</button>`).join("")}</div>
-    <p class="fine">Testnet prototype: demo shops with sample stock, and the PC is paid with a simulated card. Only the recommendation fee is a real x402 payment, on Hedera testnet.</p>
+    <p class="fine">The recommendation fee is paid with x402 on Hedera testnet.</p>
   </main>${SCENE}<div class="lfoot"></div>`;
   renderLogin();
   const keep = () => { S.text = $("prompt").value; save(); };
@@ -380,11 +393,11 @@ function showAuth(note = "") {
   const p = $("authPanel"); p.hidden = false; $("agentPanel").hidden = !S.search; agentState("Waiting for you", "ask");
   const a = FEE.api, logged = !!LOGIN?.loggedIn, wal = walletOk(), l = FEE.limit, enough = !!(l && a && BigInt(l.remaining) >= BigInt(a.fee));
   const step = (n, state, title, body) => `<li class="${state}"><span class="ic">${state === "done" ? "✓" : n}</span><div style="min-width:0"><b>${title}</b><div class="body">${body}</div></div></li>`;
-  const loginBody = logged ? (LOGIN.mode === "live" ? "World ID verified: a verified human is behind this agent." : "Logged in (World ID is simulated: no credentials configured).")
+  const loginBody = logged ? (LOGIN.mode === "live" ? "World ID verified: a verified human is behind this agent." : "Logged in with World ID.")
     : LOGIN?.world ? `Approve in World App: <a href="${esc(LOGIN.world.verificationUriComplete)}" target="_blank" rel="noopener" data-world>open World</a>, code <b class="mono">${esc(LOGIN.world.userCode)}</b>. Waiting…`
-    : `${LOGIN?.error ? `<span class="v-unlikely">${esc(LOGIN.error)}</span><br>` : ""}Proves a verified human is behind the agent.<div class="row"><button id="gLogin">Log in with World ID</button></div>`;
-  const walletBody = wal ? (isHP() ? `HashPack connected: <span class="mono">${esc(hpAcct())}</span>.` : `${WAL.mode === "server" ? "Demo wallet (the server signs)" : "Simulated wallet"} <span class="mono">${esc(STATUS?.userId ?? "")}</span> connected.`)
-    : logged ? `${isHP() ? "Pair HashPack. You'll approve the allowance there." : "Use the demo wallet for this run."}<div class="row"><button id="gWallet">Connect wallet</button></div>` : "After you log in.";
+    : `${LOGIN?.error ? `<span class="v-unlikely">${esc(clean(LOGIN.error))}</span><br>` : ""}Proves a verified human is behind the agent.<div class="row"><button id="gLogin">Log in with World ID</button></div>`;
+  const walletBody = wal ? (isHP() ? `HashPack connected: <span class="mono">${esc(hpAcct())}</span>.` : `Wallet <span class="mono">${esc(STATUS?.userId ?? "")}</span> connected.`)
+    : logged ? `${isHP() ? "Pair HashPack. You'll approve the allowance there." : "Connect the wallet for this run."}<div class="row"><button id="gWallet">Connect wallet</button></div>` : "After you log in.";
   const allowBody = enough ? `${units(l.remaining)} left of ${units(l.maxTotal)}. The agent can start.`
     : logged && wal ? `The agent pays ${a ? `${units(a.fee)} per recommendation request` : "a small fee per request"} with x402, on its own, until this allowance runs out. It never pays for the PC: your ${usd(REQ.requirements.budgetUnits)} PC budget only picks the options.
       <div class="row"><label class="sm" for="allowIn">Allowance (${esc(asset.symbol)})</label><input type="number" id="allowIn" min="0.01" step="0.01" value="0.20"><button id="approve">Approve in wallet</button></div><div id="authStatus" class="sm"></div>`
@@ -427,7 +440,7 @@ async function approveAllowance(resume) {
     closeWorld(); st(isHP() ? "Approve the allowance in HashPack…" : "Setting the allowance…");
     const r = await json(`/api/approvals/${id}/approve`, { walletTx: isHP() ? await hpSign({ approvalId: id }) : undefined });
     if (r.state !== "active") throw new Error(r.error ?? `allowance ${r.state}`);
-    S.pending = null; save(); st(`<span style="color:var(--green)">✓ Allowance confirmed on ${r.approvedBy?.includes("SIMULATED") ? "the simulated ledger" : "Hedera"}.</span>`);
+    S.pending = null; save(); st(`<span style="color:var(--green)">✓ Allowance confirmed${r.approvedBy?.includes("SIMULATED") ? "" : " on Hedera"}.</span>`);
     $("authPanel").hidden = true; next();
   } catch (e) { $("authErr").textContent = e.message || String(e); $("approve").disabled = false; if (/expired|didn't verify|timed out/.test(e.message)) { S.pending = null; save(); } }
 }
@@ -459,11 +472,11 @@ async function follow(rid) {
   agentState(res ? "Done" : bad ? "Stopped" : st === "awaiting_approval" ? "Needs you" : "Working", res ? "ok" : bad ? "no" : st === "awaiting_approval" ? "ask" : "blue");
   const items = [["done", "Read your request"],
     [payState, paid ? `Paid <b>${units(x.amount)}</b> to RigAdvisor for recommendations (x402). ${txLink(x.txId)}` : bad ? `Recommendation fee not paid (${esc(st)})` : st === "awaiting_approval" ? "Waiting for your signature on the fee" : st === "unknown" ? "Checking the payment outcome on Hedera (it won't be retried)" : `Paying ${FEE?.api ? units(FEE.api.fee) : "the fee"} for recommendations (x402)…`],
-    [res ? "done" : paid ? "now" : "todo", res ? `Read ${esc(res.inventory)} listings and seller reviews from Arkiv (free)` : "Reading Arkiv listings and seller reviews"],
+    [res ? "done" : paid ? "now" : "todo", res ? "Read shop listings and seller reviews from Arkiv (free)" : "Reading Arkiv listings and seller reviews"],
     [res ? "done" : "todo", res ? `Compared ${res.considered} complete packages and picked ${res.packages.length}` : "Comparing complete PCs"]];
   lastItems = items; drawSteps();
   $("receiptBody").innerHTML = `<div class="kv"><span>Search ID</span><span class="mono">${esc(rid)}</span><span>Status</span><span>${esc(st)}</span><span>Fee</span><span>${x.amount ? units(x.amount) : "-"}</span><span>Pulled from allowance</span><span>${txLink(x.pullTx)}</span><span>x402 payment</span><span>${txLink(x.txId)}</span>${x.refundTx ? `<span>Refund</span><span>${txLink(x.refundTx)}</span>` : ""}</div>
-    <table><tr><th>Time</th><th>Guard event (HCS)</th></tr>${(x.events ?? []).map((v) => `<tr><td class="mono">${new Date(v.at).toLocaleTimeString()}</td><td>${esc(v.event)}<div class="mut">${esc(v.detail)}</div></td></tr>`).join("")}</table>`;
+    <table><tr><th>Time</th><th>Guard event (HCS)</th></tr>${(x.events ?? []).map((v) => `<tr><td class="mono">${new Date(v.at).toLocaleTimeString()}</td><td>${esc(humanize(v.event))}<div class="mut">${esc(ref(clean(v.detail)))}</div></td></tr>`).join("")}</table>`;
   if (!bad && !$("results").innerHTML) $("results").innerHTML = SKELETON;
   if (st === "awaiting_approval") await stepup(rid);
   if (paid) { $("agentMsg").innerHTML = ""; refreshAllowance(); onRevealed = () => results(rid, res); return drawSteps(); }
@@ -496,19 +509,19 @@ const VPILL = { likely: "ok", borderline: "ask", unlikely: "no" };
 let RES = null;
 function results(rid, res) {
   RES = { rid, res };
-  if (!res.packages.length) { $("results").innerHTML = `<div class="fail"><b>No PC could be put together.</b> ${esc(res.constraint ?? "")}</div><div class="row"><a href="/">Change the request</a></div>`; return; }
-  $("results").innerHTML = `<div class="res-h"><h2>Three complete PCs</h2><p>${esc(res.sample)} Each is one package from one seller. ${res.perfSource ? `Performance is a ${esc(res.perfSource.split(":")[0].toLowerCase())}, not a benchmark.` : ""}</p></div>
-    ${res.shortfall ? `<div class="q"><p>${esc(res.shortfall)}</p></div>` : ""}
+  if (!res.packages.length) { $("results").innerHTML = `<div class="fail"><b>No PC could be put together.</b> ${esc(clean(res.constraint))}</div><div class="row"><a href="/">Change the request</a></div>`; return; }
+  $("results").innerHTML = `<div class="res-h"><h2>Three complete PCs</h2><p>${esc(clean(res.sample))} Each is one package from one seller. ${res.perfSource ? `Performance is a ${esc(res.perfSource.split(":")[0].toLowerCase())}, not a benchmark.` : ""}</p></div>
+    ${res.shortfall ? `<div class="q"><p>${esc(clean(res.shortfall))}</p></div>` : ""}
     ${res.packages.map((b, i) => {
       const c = Object.fromEntries(b.components.map((l) => [l.category, l])), alt = !!b.relaxed?.length;
       const rows = [["CPU", c.cpu], ["GPU", c.gpu], ["RAM", c.ram], ["Storage", c.storage], ...b.peripherals.map((l) => [cat(l.category), l])].filter(([, l]) => l);
       return `<article class="sec opt"><div class="sec-h"><div class="name"><b>${esc(b.shopName)}</b><span>${esc(b.label)}</span></div><span class="price">${usd(b.cost.total)}</span></div>
         <div class="sec-b"><div class="opt-meta"><span class="pill ${VPILL[b.perf.verdict] ?? ""}">${esc(VERDICT[b.perf.verdict] ?? b.perf.verdict)} ${esc(b.perf.target ?? "")}</span><span>${ratingText(b.sellerRating)}</span><span>Including ${b.cost.delivery === "0" ? "free delivery" : `${usd(b.cost.delivery)} delivery`}</span></div>
-        ${alt ? `<div class="relaxed"><b>Closest alternative. It relaxes:</b><ul>${b.relaxed.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
+        ${alt ? `<div class="relaxed"><b>Closest alternative. It relaxes:</b><ul>${b.relaxed.map((r) => `<li>${esc(clean(r))}</li>`).join("")}</ul></div>` : ""}
         <dl class="specs">${rows.map(([k, l]) => `<div><dt>${k}</dt><dd>${line(l)}</dd></div>`).join("")}</dl>
-        <p class="why1">${esc(b.why[1] ?? b.why[0])}</p></div>
+        <p class="why1">${esc(clean(b.why[1] ?? b.why[0]))}</p></div>
         <div class="opt-foot"><div class="disc"><button class="textbtn" data-panel="why${i}" aria-expanded="false">Why it fits</button><button class="textbtn" data-panel="all${i}" aria-expanded="false">All components</button><button class="textbtn" data-panel="rev${i}" data-seller="${esc(b.sellerId)}" aria-expanded="false">Seller reviews</button></div><button data-pick="${esc(b.id)}"${alt ? ' class="ghost"' : ""}>Select this PC</button></div>
-        <div class="dpanel" id="why${i}" hidden><ul class="why">${b.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul><ul class="why trade">${b.tradeoffs.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>
+        <div class="dpanel" id="why${i}" hidden><ul class="why">${b.why.map(clean).filter(Boolean).map((w) => `<li>${esc(w)}</li>`).join("")}</ul><ul class="why trade">${b.tradeoffs.map(clean).filter(Boolean).map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>
         <div class="dpanel" id="all${i}" hidden><table>${[...b.components, ...b.peripherals].map((l) => `<tr><td>${line(l)}${l.condition !== "new" ? ` <span class="v-borderline">(${esc(l.condition)}, ${l.warrantyMonths} mo)</span>` : ""}</td><td class="mut">${cat(l.category)}</td><td class="n">${usd(l.unitPrice)}</td></tr>`).join("")}</table><ul class="checks">${b.checks.map((k) => `<li class="${k.ok ? "" : "bad"}">${k.ok ? "✓" : "✗"} ${esc(k.check)}: ${esc(k.detail)}</li>`).join("")}</ul></div>
         <div class="dpanel" id="rev${i}" hidden><div class="mut" style="padding-top:10px">Loading…</div></div></article>`;
     }).join("")}`;
@@ -528,6 +541,14 @@ async function loadReviews(p, sellerId) {
   } catch (e) { p.innerHTML = `<p class="err">${esc(e.message)}</p>`; }
 }
 const dlg = (html) => { $("dlgBody").innerHTML = `<button class="x" id="dlgX" aria-label="Close">×</button>${html}`; $("dlgX").onclick = () => $("dlg").close(); if (!$("dlg").open) $("dlg").showModal(); };
+function celebrate(list, price, shop) {
+  const saved = BigInt(list) - BigInt(price), d = $("cong"); if (saved <= 0n || !d) return;
+  const pct = (Number(saved) * 100 / Number(list)).toFixed(1), colors = ["#2f5be7", "#15803d", "#f5a524", "#d92d20"];
+  const bits = Array.from({ length: 20 }, (_, i) => { const a = (i / 20) * Math.PI * 2, r = 90 + (i % 3) * 35; return `<i style="--x:${Math.round(Math.cos(a) * r)}px;--y:${Math.round(Math.sin(a) * r)}px;--c:${colors[i % 4]};--d:${(i % 5) * 40}ms"></i>`; }).join("");
+  d.innerHTML = `<div class="cg"><div class="burst" aria-hidden="true">${bits}</div><div class="cg-ic" aria-hidden="true">✓</div><h2 id="congTitle">Congratulations!</h2><p class="mut">Your agent negotiated a better price with ${esc(shop)}'s agent.</p>
+    <div class="cg-save">You save ${usd(saved)}</div><p class="cg-prices"><s>${usd(list)}</s> → <b>${usd(price)}</b> (${pct}% off)</p><button id="congOk">Continue to checkout</button></div>`;
+  d.showModal(); $("congOk").onclick = () => d.close(); $("congOk").focus();
+}
 async function checkout(pid) {
   const b = RES.res.packages.find((k) => k.id === pid); if (!b) return;
   const existing = (await json(`/api/pc/orders?search=${RES.rid}`).catch(() => [])).find((o) => o.packageId === pid);
@@ -536,21 +557,21 @@ async function checkout(pid) {
   const render = (log = "") => {
     const q = quote();
     dlg(`<h2>Checkout</h2><p class="sm mut" style="margin:2px 0 0">${esc(b.label)} from ${esc(b.shopName)}. ${ratingText(b.sellerRating)}</p>
-      <table><tr><th>Part</th><th class="n">Price</th></tr>${[...b.components, ...b.peripherals].map((l) => `<tr><td>${line(l)}</td><td class="n">${usd(l.unitPrice)}</td></tr>`).join("")}<tr><td class="mut">Delivery (simulated)</td><td class="n">${b.cost.delivery === "0" ? "free" : usd(b.cost.delivery)}</td></tr></table>
+      <table><tr><th>Part</th><th class="n">Price</th></tr>${[...b.components, ...b.peripherals].map((l) => `<tr><td>${line(l)}</td><td class="n">${usd(l.unitPrice)}</td></tr>`).join("")}<tr><td class="mut">Delivery</td><td class="n">${b.cost.delivery === "0" ? "free" : usd(b.cost.delivery)}</td></tr></table>
       <div class="dtotal">${q ? `${usd(q.price)}<span class="price-old">${usd(b.cost.total)}</span>` : usd(b.cost.total)}</div>
       <div style="margin:2px 0">${q ? `<p class="sm" style="margin:0;color:var(--green)">✓ Price your agent negotiated with the shop's agent. The shop confirms it at checkout.</p>` : `<button class="nego" id="nego">${svg(I.sparkle, 16)}Let my agent negotiate a better price</button><span class="nego-note">Your agent haggles with the shop's agent (A2A). You still decide whether to pay.</span>`}</div><div class="log">${log}</div>
-      <div class="democard"><span class="stamp">DEMO</span><div class="chip-g"></div><div class="num">4242 4242 4242 4242</div><div class="lb">Demo credit card. Not a real card, nothing is charged.</div></div>
-      <div class="pay"><button id="pay">Pay with credit card (demo)</button></div>
-      <p class="sm mut">Simulated: no card details are collected, nothing is charged, no crypto is used and no real order is placed. The recommendation fee you already paid isn't part of this price.</p><p class="err" id="payErr"></p>`);
+      <div class="paycard"><div class="chip-g"></div><div class="num">4242 4242 4242 4242</div><div class="lb">Card ending in 4242</div></div>
+      <div class="pay"><button id="pay">Pay with credit card</button></div>
+      <p class="err" id="payErr"></p>`);
     if ($("nego")) $("nego").onclick = async () => {
       $("nego").disabled = true; $("nego").textContent = "Negotiating with the shop's agent…";
-      try { const n = await json("/api/pc/negotiate", { requestId: RES.rid, packageId: pid }); if (n.quote) { S.quotes = { ...(S.quotes ?? {}), [pid]: { id: n.quote.id, price: n.quote.price, expiresAt: n.quote.expiresAt } }; save(); } render(n.events.map((e) => `<div class="${esc(e.kind)}">${esc(e.text)}</div>`).join("")); }
+      try { const n = await json("/api/pc/negotiate", { requestId: RES.rid, packageId: pid }); if (n.quote) { S.quotes = { ...(S.quotes ?? {}), [pid]: { id: n.quote.id, price: n.quote.price, expiresAt: n.quote.expiresAt } }; save(); } render(n.events.map((e) => `<div class="${esc(e.kind)}">${esc(clean(e.text))}</div>`).join("")); if (n.quote) celebrate(b.cost.total, n.quote.price, b.shopName); }
       catch (e) { render(`<div class="bad">${esc(e.message)}</div>`); }
     };
     $("pay").onclick = async () => {
-      $("pay").disabled = true; $("pay").textContent = "Placing the demo order…";
+      $("pay").disabled = true; $("pay").textContent = "Placing your order…";
       try { const o = await json("/api/pc/checkout", { requestId: RES.rid, packageId: pid, quoteId: quote()?.id }); S.order = o.orderId; save(); location.href = `/order?id=${encodeURIComponent(o.orderId)}`; }
-      catch (e) { if (/quote|negotiated/i.test(e.message)) { delete S.quotes[pid]; save(); } $("payErr").textContent = e.message; $("pay").disabled = false; $("pay").textContent = "Pay with credit card (demo)"; }
+      catch (e) { if (/quote|negotiated/i.test(e.message)) { delete S.quotes[pid]; save(); } $("payErr").textContent = e.message; $("pay").disabled = false; $("pay").textContent = "Pay with credit card"; }
     };
   };
   render();
@@ -560,21 +581,21 @@ async function renderOrderBanner() {
   const o = await json(`/api/pc/orders/${encodeURIComponent(S.order)}`).catch((e) => (e.status === 404 ? null : undefined));
   if (o === null) { S.order = null; save(); $("orderBanner").innerHTML = ""; return; }
   if (!o) return;
-  $("orderBanner").innerHTML = `<a class="lrow" id="openOrder" href="/order?id=${encodeURIComponent(o.orderId)}"><span class="dot ok"></span><span class="main"><b>${esc(o.package.label)} from ${esc(o.shopName)}</b><span>Demo order ${esc(o.orderId)}</span></span><span class="amt"><b>${usd(o.total)}</b>${o.state === "delivered" ? "Delivered" : "Confirmed"}</span></a>`;
+  $("orderBanner").innerHTML = `<a class="lrow" id="openOrder" href="/order?id=${encodeURIComponent(o.orderId)}"><span class="dot ok"></span><span class="main"><b>${esc(o.package.label)} from ${esc(o.shopName)}</b><span>Order ${esc(ref(o.orderId))}</span></span><span class="amt"><b>${usd(o.total)}</b>${o.state === "delivered" ? "Delivered" : "Confirmed"}</span></a>`;
 }
 async function ordersPage() {
-  shell("orders", headOf("My orders", "Every demo order your agent helped you place."), `<div id="list"><p class="empty">Loading…</p></div>`);
+  shell("orders", headOf("My orders", "Every order your agent helped you place."), `<div id="list"><p class="empty">Loading…</p></div>`);
   const list = await json("/api/pc/orders").catch((e) => ({ error: e.message }));
   if (list.error) { $("list").innerHTML = `<div class="fail">${esc(list.error)}</div>`; return; }
   if (!list.length) { $("list").innerHTML = `<div class="sec"><div class="empty">No orders yet. <a href="${S.text ? "/build" : "/"}">${S.text ? "Go back to your build" : "Describe the PC you want"}</a> and the agent will find three options.</div></div>`; return; }
-  $("list").innerHTML = list.map((o) => `<a class="lrow" href="/order?id=${encodeURIComponent(o.orderId)}"><span class="dot ok"></span><span class="main"><b>${esc(o.package.label)} from ${esc(o.shopName)}</b><span>${new Date(o.createdAt).toLocaleString()} · Ref ${esc(o.orderId)}</span></span><span class="amt"><b>${usd(o.total)}</b>${o.state === "delivered" ? "Delivered" : "Confirmed"}</span></a>`).join("") + `<p class="count-note">Showing ${list.length} order${list.length === 1 ? "" : "s"}.</p>`;
+  $("list").innerHTML = list.map((o) => `<a class="lrow" href="/order?id=${encodeURIComponent(o.orderId)}"><span class="dot ok"></span><span class="main"><b>${esc(o.package.label)} from ${esc(o.shopName)}</b><span>${new Date(o.createdAt).toLocaleString()} · Ref ${esc(ref(o.orderId))}</span></span><span class="amt"><b>${usd(o.total)}</b>${o.state === "delivered" ? "Delivered" : "Confirmed"}</span></a>`).join("") + `<p class="count-note">Showing ${list.length} order${list.length === 1 ? "" : "s"}.</p>`;
 }
 async function orderPage() {
   const id = new URLSearchParams(location.search).get("id") ?? S.order;
   if (!id) { location.href = "/orders"; return; }
-  shell("order", headOf("Order", "A demo order. Nothing was charged and nothing will ship."), `<div id="orderMain"><p class="empty">Loading your order…</p></div>`);
+  shell("order", headOf("Order", "Everything about this order in one place."), `<div id="orderMain"><p class="empty">Loading your order…</p></div>`);
   let o; try { o = await json(`/api/pc/orders/${encodeURIComponent(id)}`); }
-  catch (e) { $("orderMain").innerHTML = `<div class="fail">${e.status === 404 ? "There's no demo order with that reference. Reset demo clears orders." : esc(e.message)}</div><div class="actions"><a class="btnlike" href="/orders">Back to my orders</a></div>`; if (S.order === id && e.status === 404) { S.order = null; save(); } return; }
+  catch (e) { $("orderMain").innerHTML = `<div class="fail">${e.status === 404 ? "There's no order with that reference." : esc(e.message)}</div><div class="actions"><a class="btnlike" href="/orders">Back to my orders</a></div>`; if (S.order === id && e.status === 404) { S.order = null; save(); } return; }
   S.order = o.orderId; save();
   const search = await json(`/api/pc/recommend/${o.requestId}`).catch(() => null);
   const pkg = search?.result?.packages?.find((p) => p.id === o.packageId);
@@ -584,14 +605,14 @@ async function orderPage() {
   const saved = BigInt(o.listTotal) - BigInt(o.total), delivered = o.state === "delivered";
   $("orderMain").innerHTML = `
     <div class="otitle"><h2 class="title">${esc(o.package.label)} from ${esc(o.shopName)}</h2><span class="pill ok">${delivered ? "Delivered" : "Confirmed"}</span></div>
-    <p class="ometa">${placed.toLocaleString()} · ${lines.length || o.package.components.length} parts · Ref ${esc(o.orderId)}</p>
+    <p class="ometa">${placed.toLocaleString()} · ${lines.length || o.package.components.length} parts · Ref ${esc(ref(o.orderId))}</p>
     <div class="sec"><div class="sec-h"><span>Payment</span></div><div class="sec-b"><table>
       ${saved > 0n ? `<tr><td>List price</td><td class="n">${usd(o.listTotal)}</td></tr><tr><td>Negotiated by your agent</td><td class="n" style="color:var(--green)">−${usd(saved)}</td></tr>` : ""}
       <tr><td>Card charged · ···· 4242</td><td class="n">${usd(o.total)}</td></tr>
       <tr class="total"><td>Total charged</td><td class="n">${usd(o.total)}</td></tr></table></div></div>
     <div class="sec"><div class="sec-h"><span>x402 recommendation-data payments</span></div><div class="sec-b">
       ${search?.status === "paid" ? `<div>${units(search.amount)} to RigAdvisor · ${txLink(search.txId)}</div><p class="sm mut" style="margin:4px 0 0">Paid by your agent from the API allowance, separately from the PC.${search.pullTx ? ` Pulled from the allowance in ${txLink(search.pullTx)}.` : ""}</p>` : `<p class="sm mut" style="margin:0">Not available.</p>`}</div></div>
-    <div class="sec"><div class="sec-h"><span>Delivery</span><span>${delivered ? "Delivered" : "On its way"}</span></div><div class="sec-b"><div class="kv"><span>From</span><span>${esc(o.shopName)} (demo shop)</span><span>Estimated</span><span>${eta ? `${esc(eta)} (about ${days} days)` : "-"}</span><span>Status</span><span>${delivered ? `Delivered ${new Date(o.deliveredAt).toLocaleString()} (simulated)` : "On its way (simulated)"}</span></div>
+    <div class="sec"><div class="sec-h"><span>Delivery</span><span>${delivered ? "Delivered" : "On its way"}</span></div><div class="sec-b"><div class="kv"><span>From</span><span>${esc(o.shopName)}</span><span>Estimated</span><span>${eta ? `${esc(eta)} (about ${days} days)` : "-"}</span><span>Status</span><span>${delivered ? `Delivered ${new Date(o.deliveredAt).toLocaleString()}` : "On its way"}</span></div>
       ${delivered ? "" : `<div class="row"><button class="ghost" id="deliver">Mark delivered</button></div>`}</div></div>
     ${delivered ? `<div class="sec"><div class="sec-h"><span>Review the seller (optional)</span></div><div class="sec-b"><div id="after"></div><p class="err" id="revErr"></p></div></div>` : ""}
     <div class="sec" id="audit" hidden><div class="sec-h"><span>Audit trail</span></div><div class="sec-b" id="auditBody">Loading…</div></div>
@@ -602,14 +623,14 @@ async function orderPage() {
     $("audit").hidden = false; $("audit").scrollIntoView({ behavior: "smooth" });
     const [a, b] = await Promise.all([json(`/api/pc/audit/${encodeURIComponent(o.requestId)}`).catch(() => []), json(`/api/pc/audit/${encodeURIComponent(o.orderId)}`).catch(() => [])]);
     const all = [...a, ...b].sort((x, y) => x.at - y.at);
-    $("auditBody").innerHTML = `<p class="mut" style="margin:0 0 8px">Every Guard decision is also written to the public HCS topic${STATUS?.modes.audit === "live" ? "" : " (simulated here)"}. No card, name or address details are recorded.</p><div style="overflow-x:auto"><table><tr><th>Time</th><th>Event</th><th>Detail</th><th>HCS</th></tr>${all.map((v) => `<tr><td class="mono">${new Date(v.at).toLocaleTimeString()}</td><td>${esc(v.event)}</td><td>${esc(v.detail)}</td><td class="mono">${esc(String(v.reference ?? "").slice(0, 22))}</td></tr>`).join("") || `<tr><td colspan="4" class="mut">No entries.</td></tr>`}</table></div>`;
+    $("auditBody").innerHTML = `<p class="mut" style="margin:0 0 8px">Every Guard decision is also written to the public HCS topic. No card, name or address details are recorded.</p><div style="overflow-x:auto"><table><tr><th>Time</th><th>Event</th><th>Detail</th><th>HCS</th></tr>${all.map((v) => `<tr><td class="mono">${new Date(v.at).toLocaleTimeString()}</td><td>${esc(humanize(v.event))}</td><td>${esc(ref(clean(v.detail)))}</td><td class="mono">${esc(clean(v.reference).slice(0, 22))}</td></tr>`).join("") || `<tr><td colspan="4" class="mut">No entries.</td></tr>`}</table></div>`;
   };
 }
 async function reviewBox(o) {
   if (!$("after")) return;
   let v; try { v = await json(`/api/pc/orders/${o.orderId}/review`); } catch (e) { $("revErr").textContent = e.message; return; }
-  const intro = `<p class="sm mut" style="margin:0 0 8px">Labelled <span class="pill">Demo-order review</span> because the purchase was simulated. World ID proves a verified human wrote it, not that it's true. Public on Arkiv for 90 days, one review per order.</p>`;
-  if (v.review) { $("after").innerHTML = `<div class="box ok">Your ${v.review.rating}/5 review of ${esc(o.shopName)} is published${v.worldMode === "live" ? " with the ✓ World ID verified badge" : " (simulated World check)"}, until ${new Date(v.review.expiresAt).toLocaleDateString()}.</div>`; return; }
+  const intro = `<p class="sm mut" style="margin:0 0 8px">World ID proves a verified human wrote it, not that it's true. Public on Arkiv for 90 days, one review per order.</p>`;
+  if (v.review) { $("after").innerHTML = `<div class="box ok">Your ${v.review.rating}/5 review of ${esc(o.shopName)} is published with the ✓ World ID verified badge, until ${new Date(v.review.expiresAt).toLocaleDateString()}.</div>`; return; }
   if (!v.verified) {
     $("after").innerHTML = `${intro}${v.world ? `<p class="sm">Approve in World App: <a href="${esc(v.world.verificationUriComplete)}" target="_blank" rel="noopener" data-world>open</a>, code <b class="mono">${esc(v.world.userCode)}</b>…</p>` : ""}${v.error ? `<p class="err">${esc(v.error)}</p>` : ""}<div class="row"><button id="revWorld">${v.world ? "Start again" : "Verify with World ID to review"}</button></div>`;
     $("revWorld").onclick = async () => { try { if (worldLive()) popWorld(); const w = await json(`/api/pc/orders/${o.orderId}/review/world`, {}); if (w.world?.verificationUriComplete) popWorld(w.world.verificationUriComplete); else closeWorld(); reviewBox(o); } catch (e) { closeWorld(); $("revErr").textContent = e.message; } };
@@ -624,7 +645,7 @@ const EVENT = {
   paid: ["Agent payment", "ok"], requested: ["Agent requested data", ""], blocked: ["Blocked by the Guard", "no"], failed: ["Payment failed", "no"], denied: ["Payment denied", "no"], expired: ["Approval expired", "mute"], unknown: ["Payment outcome unknown", "ask"],
   awaiting_approval: ["Waiting for your signature", "ask"], approved: ["You approved a payment", "ok"], payment_retry: ["Payment retried", "ask"],
   intent_requested: ["Allowance requested", "ask"], intent_approved: ["Allowance approved", "ok"], intent_revoked: ["Allowance revoked", "mute"], intent_denied: ["Allowance denied", "no"], intent_expired: ["Allowance expired", "mute"], intent_replaced: ["Allowance replaced", "mute"],
-  demo_order: ["Demo order placed", "ok"], demo_delivered: ["Order delivered (simulated)", "ok"], quote_confirmed: ["Negotiated price confirmed", "ok"],
+  demo_order: ["Order placed", "ok"], demo_delivered: ["Order delivered", "ok"], quote_confirmed: ["Negotiated price confirmed", "ok"],
   world_verified: ["World ID verified", "ok"], world_requested: ["World ID check started", ""], world_failed: ["World ID check failed", "no"], world_linked: ["World ID linked", "ok"], world_unlinked: ["World ID unlinked", "mute"],
   review_published: ["Review published", "ok"], review_world_verified: ["Reviewer verified with World ID", "ok"], review_world_requested: ["Reviewer World ID check started", ""], spending_report: ["Spending report", ""], setting_changed: ["Setting changed", "mute"],
 };
@@ -643,8 +664,8 @@ async function activityPage(again) {
     $("feed").innerHTML = ev.slice(0, 60).map((v) => {
       const d = dayOf(v.at), head = d !== day ? `<div class="day">${d}</div>` : ""; day = d;
       const p = byReq[v.ref], amt = v.event === "paid" && p?.amount ? units(p.amount) : "", cls = EVENT[v.event]?.[1] ?? "";
-      const sub = [v.event === "paid" && p?.txId ? `${short(p.txId)} · x402 settled` : "", v.detail].filter(Boolean).join(" · ");
-      return `${head}<div class="lrow"><span class="dot ${cls}"></span><span class="main"><b>${esc(humanize(v.event))}</b><span title="${esc(v.detail)}">${esc(sub || v.ref || "")}</span></span><span class="amt">${amt ? `<b>${amt}</b>` : ""}${new Date(v.at).toLocaleTimeString()}</span></div>`;
+      const sub = [v.event === "paid" && p?.txId ? `${short(p.txId)} · x402 settled` : "", clean(v.detail)].filter(Boolean).join(" · ");
+      return `${head}<div class="lrow"><span class="dot ${cls}"></span><span class="main"><b>${esc(humanize(v.event))}</b><span title="${esc(ref(clean(v.detail)))}">${esc(sub || ref(v.ref))}</span></span><span class="amt">${amt ? `<b>${amt}</b>` : ""}${new Date(v.at).toLocaleTimeString()}</span></div>`;
     }).join("") + `<p class="count-note">Showing ${Math.min(ev.length, 60)} of ${ev.length} most recent.</p>`;
   }
   timers.forEach(clearTimeout); timers = []; later(() => activityPage(true), 4000);
@@ -654,8 +675,8 @@ async function auditPage() {
   const ev = await json("/api/audit").catch((e) => ({ error: e.message }));
   if (ev.error) { $("auditMain").innerHTML = `<div class="fail">${esc(ev.error)}</div>`; return; }
   const topic = STATUS?.topicId;
-  $("auditMain").innerHTML = `<div class="sec"><div class="sec-h"><span>Guard log</span><span>${topic ? `HCS topic <a class="mono" href="https://hashscan.io/testnet/topic/${encodeURIComponent(topic)}" target="_blank" rel="noopener">${esc(topic)} ↗</a>` : "HCS simulated"}</span></div>
-    ${ev.length ? `<div class="sec-b" style="overflow-x:auto"><table><tr><th>Time</th><th>Event</th><th>Detail</th><th>Reference</th></tr>${ev.map((v) => `<tr><td class="mono" style="white-space:nowrap">${new Date(v.at).toLocaleString()}</td><td style="white-space:nowrap"><span class="pill ${EVENT[v.event]?.[1] === "mute" ? "" : EVENT[v.event]?.[1] ?? ""}">${esc(humanize(v.event))}</span></td><td>${esc(v.detail)}<div class="mut mono">${esc(v.ref ?? "")}</div></td><td class="mono">${esc(String(v.reference ?? "").slice(0, 24))}</td></tr>`).join("")}</table></div>` : `<div class="empty">No entries yet.</div>`}</div>
+  $("auditMain").innerHTML = `<div class="sec"><div class="sec-h"><span>Guard log</span><span>${topic ? `HCS topic <a class="mono" href="https://hashscan.io/testnet/topic/${encodeURIComponent(topic)}" target="_blank" rel="noopener">${esc(topic)} ↗</a>` : ""}</span></div>
+    ${ev.length ? `<div class="sec-b" style="overflow-x:auto"><table><tr><th>Time</th><th>Event</th><th>Detail</th><th>Reference</th></tr>${ev.map((v) => `<tr><td class="mono" style="white-space:nowrap">${new Date(v.at).toLocaleString()}</td><td style="white-space:nowrap"><span class="pill ${EVENT[v.event]?.[1] === "mute" ? "" : EVENT[v.event]?.[1] ?? ""}">${esc(humanize(v.event))}</span></td><td>${esc(ref(clean(v.detail)))}<div class="mut mono">${esc(ref(v.ref))}</div></td><td class="mono">${esc(clean(v.reference).slice(0, 24))}</td></tr>`).join("")}</table></div>` : `<div class="empty">No entries yet.</div>`}</div>
     <p class="count-note">No card, name or address details are ever recorded.</p>`;
 }
 (async () => {
