@@ -272,14 +272,16 @@ async function pollWorld(ap) {
 }
 const waitFor = async (f, ms) => { for (const end = Date.now() + ms; ;) { const v = await f(); if (v || Date.now() > end) return v; await new Promise((r) => setTimeout(r, 700)); } };
 
-async function decide(ap, decision, walletTx) {
+async function decide(ap, decision, walletTx, account) {
   const set = (s) => db.prepare("UPDATE approvals SET state=? WHERE id=?").run(s, ap.id);
-  const approver = m.world === "live" ? "World ID (verified on the server)" : "SIMULATED approval";
+  // The dashboard (the only holder of the DASH token) passes the Google account it verified; that authorises the approval.
+  const google = account?.via === "google" && account.sub ? account : null;
+  const approver = google ? `Google account ${google.email ?? google.sub} (verified by the dashboard)` : m.world === "live" ? "World ID (verified on the server)" : "SIMULATED approval";
   if (ap.kind === "intent") {
     const i = intent(ap.ref);
     if (Date.now() > ap.expires_at) { set("expired"); setIntent(i.id, "expired"); await audit("intent_expired", i.id, "approval expired"); return { status: 200, body: intentView(intent(i.id)) }; }
     if (decision !== "approve") { set("denied"); setIntent(i.id, "denied"); await audit("intent_denied", i.id, "user said no"); return { status: 200, body: intentView(intent(i.id)) }; }
-    if (m.world === "live" && !ap.verified && !covered(ap)) return { status: 403, body: { error: "World login is not verified" } };
+    if (m.world === "live" && !ap.verified && !covered(ap) && !google) return { status: 403, body: { error: "World login is not verified" } };
     const onChain = await L.allowanceApproved(walletTx, i.max_total, ap.created_at);
     if (!onChain.ok) return { status: 409, body: { error: `allowance not confirmed on Hedera: ${onChain.why}` } };
     for (const old of db.prepare("SELECT id FROM intents WHERE state='active'").all()) { setIntent(old.id, "replaced"); await audit("intent_replaced", old.id, `replaced by ${i.id}`); }
@@ -292,7 +294,7 @@ async function decide(ap, decision, walletTx) {
   if (Date.now() > ap.expires_at) { set("expired"); return { status: 200, body: await expireStepup(ap) }; }
   if (decision !== "approve") { set("denied"); await L.cancelSchedule(ap.schedule_id); return { status: 200, body: await finish(id, "denied", "human denied, no payment") }; }
   const session = m.world === "live" && covered(ap);
-  if (m.world === "live" && !ap.verified && !session) return { status: 403, body: { error: "World login is not verified" } };
+  if (m.world === "live" && !ap.verified && !session && !google) return { status: 403, body: { error: "World login is not verified" } };
   const it = intent(p.intent_id), base = await getListing(p.listing_key), l = base && withQuote(base, p.quote ? JSON.parse(p.quote) : null), input = p.result ? JSON.parse(p.result).input : null;
   const changed = !l || fingerprint(l, input, it.id) !== ap.fingerprint || it.state !== "active";
   // The user's signature is what moves the money, so the Guard waits to see it executed on-chain.
@@ -414,7 +416,7 @@ a.post("/approvals/:id/world", requireToken(DASH), h(async (q, r) => {
 a.post("/approvals/:id/decision", requireToken(DASH), h(async (q, r) => {
   const ap = one("SELECT * FROM approvals WHERE id=?", q.params.id);
   if (!ap || ap.state !== "pending") return r.status(409).json({ error: "approval is not pending" });
-  const x = await decide(ap, q.body.decision, q.body.walletTx); r.status(x.status).json(x.body);
+  const x = await decide(ap, q.body.decision, q.body.walletTx, q.body.account); r.status(x.status).json(x.body);
 }));
 // Stand-in for the user's wallet when there are no testnet keys. Disabled in live mode.
 a.get("/sim/wallet", requireToken(DASH), (_, r) => L.live ? r.status(404).json({}) : r.json(L.sim.get()));
