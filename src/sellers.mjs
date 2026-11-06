@@ -8,10 +8,17 @@ import { ASSET } from "./asset.mjs";
 import { sellerAgent } from "./a2a.mjs";
 import { badRequirements, recommend } from "./recommend.mjs";
 import { SHOPS } from "./pc-catalog.mjs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 const fac = new HTTPFacilitatorClient({ url: process.env.X402_URL });
 const server = new x402ResourceServer(fac).register(NETWORK, new ExactHederaScheme());
 // Quotes agreed over A2A. A buyer sends the quote ID in x-quote-id, and the x402 price becomes the agreed price.
-const quotes = new Map();
+// Kept on disk (unexpired ones only), so a restart between agreeing a price and paying doesn't lose the deal.
+const QUOTES_FILE = process.env.SELLER_QUOTES_FILE || "data/seller-quotes.json";
+class SavedQuotes extends Map {
+  set(k, v) { super.set(k, v); for (const [id, q] of this) if (!(q.expiresAt > Date.now())) super.delete(id); try { mkdirSync(dirname(QUOTES_FILE), { recursive: true }); writeFileSync(QUOTES_FILE, JSON.stringify([...this])); } catch (e) { console.error(`[sellers] couldn't save quotes: ${e.message}`); } return this; }
+}
+const quotes = new SavedQuotes((() => { try { return JSON.parse(readFileSync(QUOTES_FILE, "utf8")).filter(([, q]) => q.expiresAt > Date.now()); } catch { return []; } })());
 const priceFor = (x) => (ctx) => {
   const q = quotes.get(ctx.adapter.getHeader("x-quote-id") ?? "");
   const honoured = q && !x.ignoresQuotes && q.listing === x.key && q.expiresAt > Date.now();
@@ -27,8 +34,15 @@ for (const x of LISTINGS.filter((l) => l.floor)) a.use(`/a2a/${x.key}`, sellerAg
 // The list price comes from this service's own copy of the package, never from the buyer. The floor is the shop's, private.
 // The agreed price is a quote for the SIMULATED card checkout; nothing here is paid in crypto.
 export const PC_UNIT = { symbol: "USDC", decimals: 6 };
-const packages = new Map();
-const remember = (out) => { if (packages.size > 500) packages.clear(); for (const p of out.packages ?? []) packages.set(`pkg:${p.id}`, p); return out; };
+// Kept on disk, so a restart doesn't make the shops forget packages they already recommended (and refuse to negotiate them).
+const PACKAGES_FILE = process.env.SELLER_PACKAGES_FILE || "data/seller-packages.json";
+const packages = new Map((() => { try { return JSON.parse(readFileSync(PACKAGES_FILE, "utf8")); } catch { return []; } })());
+const remember = (out) => {
+  for (const p of out.packages ?? []) packages.set(`pkg:${p.id}`, p);
+  while (packages.size > 500) packages.delete(packages.keys().next().value);
+  try { mkdirSync(dirname(PACKAGES_FILE), { recursive: true }); writeFileSync(PACKAGES_FILE, JSON.stringify([...packages])); } catch (e) { console.error(`[sellers] couldn't save packages: ${e.message}`); }
+  return out;
+};
 for (const shop of SHOPS) a.use(`/a2a/shops/${shop.sellerId}`, sellerAgent({
   name: shop.name, baseUrl: url("sellers", `/a2a/shops/${shop.sellerId}`), quotes,
   lookup: (key) => { const p = packages.get(key); return p && p.sellerId === shop.sellerId ? { key, name: `${shop.name} ${p.label}`, priceTinybars: p.cost.total, floor: shop.haggle.floor, persona: shop.haggle.persona, unit: PC_UNIT } : null; },

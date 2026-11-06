@@ -2,7 +2,7 @@
 import test, { before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { rmSync, mkdtempSync } from "node:fs";
+import { rmSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -25,7 +25,7 @@ async function activate(o = {}) {
   const d = await web(`/api/approvals/${r.approvalId}/approve`, {}); assert.equal(d.body.state, "active"); return d.body;
 }
 const pendingStepup = async () => { await activate(); const p = await buy("deepreport"); assert.equal(p.status, "awaiting_approval"); assert.match(p.scheduleId, /^SIM-SCHEDULE-/); return p; };
-function env() { const e = { ...process.env, AGENT_TOKEN: AGENT, DASH_TOKEN: DASH, GUARD_DB: join(dir, "g.db"), APPROVAL_TTL_MS: "1500" }; for (const k of Object.keys(e)) if (/_PRIVATE_KEY$|_ACCOUNT_ID$|^HCS_TOPIC_ID$|^WORLD_CLIENT_ID$|^LLM_BASE_URL$|^APPROVED_OWNERS$|^DATA_GOV_IN_API_KEY$|^PROTOTYPE_MODES$|^PAY_ASSET$|^SHOP_|^GOOGLE_|^SESSION_SECRET$/.test(k)) delete e[k]; e.PAY_ASSET = TEST_ASSET; e.REVIEWS_FILE = join(dir, "reviews.json"); return e; }
+function env() { const e = { ...process.env, AGENT_TOKEN: AGENT, DASH_TOKEN: DASH, GUARD_DB: join(dir, "g.db"), SELLER_PACKAGES_FILE: join(dir, "seller-packages.json"), SELLER_QUOTES_FILE: join(dir, "seller-quotes.json"), APPROVAL_TTL_MS: "1500" }; for (const k of Object.keys(e)) if (/_PRIVATE_KEY$|_ACCOUNT_ID$|^HCS_TOPIC_ID$|^WORLD_CLIENT_ID$|^LLM_BASE_URL$|^APPROVED_OWNERS$|^DATA_GOV_IN_API_KEY$|^PROTOTYPE_MODES$|^PAY_ASSET$|^SHOP_|^GOOGLE_|^SESSION_SECRET$/.test(k)) delete e[k]; e.PAY_ASSET = TEST_ASSET; e.REVIEWS_FILE = join(dir, "reviews.json"); return e; }
 before(async () => { kid = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", "start.mjs"], { env: env(), stdio: "ignore" }); for (let i = 0; i < 100; i++) { try { await fetch(W + "/"); return; } catch { await sleep(200); } } throw new Error("stack did not start"); });
 after(() => { kid.kill(); rmSync(dir, { recursive: true, force: true }); });
 beforeEach(() => call("/reset", {}, DASH));
@@ -352,4 +352,28 @@ test("F12 Google sign-in (simulated without credentials): signs in, keeps the ne
   assert.equal((await fetch(W + "/auth/google?next=%2F%2Fevil.example", { redirect: "manual" })).headers.get("location"), "/", "only same-site paths");
   const out = await fetch(W + "/auth/logout", { method: "POST", headers: { cookie: cookie.split(";")[0] } });
   assert.match(out.headers.get("set-cookie"), /^ethpc_session=; .*Max-Age=0/);
+});
+test("F13 a negotiation can be followed live: start returns at once, messages arrive in order, then the deal", async () => {
+  const r = await paidRecommendation(), [p1] = r.result.packages;
+  const start = await web("/api/pc/negotiations", { requestId: r.requestId, packageId: p1.id });
+  assert.equal(start.status, 200); assert.match(start.body.id, /^[0-9a-f-]{36}$/);
+  let n; for (let i = 0; i < 50; i++) { n = (await web(`/api/pc/negotiations/${start.body.id}`)).body; if (n.status === "done") break; await sleep(100); }
+  assert.equal(n.status, "done"); assert.equal(n.packageId, p1.id);
+  assert.match(n.events[0].text, /^Opens a negotiation/); assert.ok(n.events.some((e) => /Offers/.test(e.text)));
+  assert.ok(n.events.every((e, i) => i === 0 || e.at >= n.events[i - 1].at), "messages in order");
+  assert.ok(n.quote && BigInt(n.quote.price) < BigInt(p1.cost.total), "a deal below list");
+  assert.equal((await web("/api/pc/checkout", { requestId: r.requestId, packageId: p1.id, quoteId: n.quote.id })).body.total, n.quote.price, "checkout honours the live quote");
+  assert.equal((await web("/api/pc/negotiations/not-a-real-id")).status, 404);
+  assert.equal((await web("/api/pc/negotiations", { requestId: "not-paid", packageId: p1.id })).status, 409);
+});
+test("F14 the shops keep the packages they recommended on disk, so a restart doesn't break negotiation", async () => {
+  const r = await paidRecommendation();
+  const saved = new Map(JSON.parse(readFileSync(join(dir, "seller-packages.json"), "utf8")));
+  for (const p of r.result.packages) { assert.ok(saved.has(`pkg:${p.id}`), p.id); assert.equal(saved.get(`pkg:${p.id}`).cost.total, p.cost.total, "the shop's own copy of the price"); }
+});
+test("F15 an agreed quote is kept on disk, so paying still works after a restart", async () => {
+  const r = await paidRecommendation(), [p1] = r.result.packages;
+  const n = (await web("/api/pc/negotiate", { requestId: r.requestId, packageId: p1.id })).body; assert.ok(n.quote);
+  const saved = new Map(JSON.parse(readFileSync(join(dir, "seller-quotes.json"), "utf8")));
+  assert.equal(saved.get(n.quote.id)?.price, n.quote.price); assert.ok(saved.get(n.quote.id).expiresAt > Date.now());
 });

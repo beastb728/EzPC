@@ -29,7 +29,7 @@ before(async () => {
     }
     json(404, {});
   }).listen(4556);
-  const e = { ...process.env, AGENT_TOKEN: AGENT, DASH_TOKEN: DASH, GUARD_DB: join(dir, "g.db"), REVIEWS_FILE: join(dir, "reviews.json"),
+  const e = { ...process.env, AGENT_TOKEN: AGENT, DASH_TOKEN: DASH, GUARD_DB: join(dir, "g.db"), SELLER_PACKAGES_FILE: join(dir, "seller-packages.json"), SELLER_QUOTES_FILE: join(dir, "seller-quotes.json"), REVIEWS_FILE: join(dir, "reviews.json"),
     GOOGLE_CLIENT_ID: CLIENT, GOOGLE_CLIENT_SECRET: SECRET, GOOGLE_REDIRECT_URI: `${W}/auth/google/callback`, GOOGLE_AUTH_URL: `${FAKE}/authorize`, GOOGLE_TOKEN_URL: `${FAKE}/token`, SESSION_SECRET: "test-session-secret",
     WORLD_ISSUER: FAKE, WORLD_CLIENT_ID: "test-world", WORLD_CLIENT_SECRET: "worldidp_client_secret_test" };
   for (const k of Object.keys(e)) if (/_PRIVATE_KEY$|_ACCOUNT_ID$|^HCS_TOPIC_ID$|^LLM_BASE_URL$|^DATA_GOV_IN_API_KEY$|^PROTOTYPE_MODES$|^APPROVED_OWNERS$|^PAY_ASSET$|^SHOP_/.test(k)) delete e[k];
