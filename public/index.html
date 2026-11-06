@@ -520,7 +520,8 @@ const CAT = { cpu: "CPU", gpu: "GPU", ram: "RAM", psu: "PSU", ssd: "SSD" };
 const cat = (c) => esc(CAT[c] ?? String(c ?? "").charAt(0).toUpperCase() + String(c ?? "").slice(1));
 const line = (l) => `${esc(l.brand)} ${esc(l.model)}`;
 // Link to the entry on Arkiv's public explorer, so anyone can check it is really on chain. Only real Arkiv entity keys get one.
-const arkivLink = (k) => /^0x[0-9a-f]{64}$/i.test(String(k ?? "")) ? `<a class="arklink" href="https://rabdi.explorer.arkiv.network/entity/${k}" target="_blank" rel="noopener" title="Open this entry on the Arkiv explorer">View on Arkiv ↗</a>` : "";
+const arkivUrl = (k) => /^0x[0-9a-f]{64}$/i.test(String(k ?? "")) ? `https://rabdi.explorer.arkiv.network/entity/${k}` : null;
+const arkivLink = (k) => arkivUrl(k) ? `<a class="arklink" href="${arkivUrl(k)}" target="_blank" rel="noopener" title="Open this entry on the Arkiv explorer">View on Arkiv ↗</a>` : "";
 const ratingText = (r) => r?.average != null ? `★ ${r.average.toFixed(1)} from ${r.count} World ID verified review${r.count === 1 ? "" : "s"}` : "No recent reviews";
 const VERDICT = { likely: "Likely to reach", borderline: "Borderline for", unlikely: "Unlikely to reach" };
 const VPILL = { likely: "ok", borderline: "ask", unlikely: "no" };
@@ -669,7 +670,7 @@ async function startReview(o, v) {
 async function reviewBox(o, writing = false) {
   if (!$("after")) return;
   let v; try { v = await json(`/api/pc/orders/${o.orderId}/review`); } catch (e) { $("revErr").textContent = e.message; return; }
-  if (v.review) { $("after").innerHTML = `<div class="box ok">Your ${v.review.rating}/5 review of ${esc(o.shopName)} is published with the ✓ World ID verified badge, until ${new Date(v.review.expiresAt).toLocaleDateString()}.</div>`; return; }
+  if (v.review) { $("after").innerHTML = `<div class="box ok">Your ${v.review.rating}/5 review of ${esc(o.shopName)} is published with the ✓ World ID verified badge, until ${new Date(v.review.expiresAt).toLocaleDateString()}.${arkivUrl(v.review.entityKey) ? `<div class="sm" style="margin-top:8px">Stored on chain on Arkiv. Anyone can check it here:<br><a class="mono" style="word-break:break-all" href="${arkivUrl(v.review.entityKey)}" target="_blank" rel="noopener">${arkivUrl(v.review.entityKey)}</a></div>` : ""}</div>`; return; }
   if (!writing && !v.world && !v.verified) {
     $("after").innerHTML = `<p class="sm mut" style="margin:0 0 10px">How did ${esc(o.shopName)} do? You'll verify with World ID first, so every review comes from a real person.</p><button id="writeRev">Write a review</button>`;
     $("writeRev").onclick = () => { $("writeRev").disabled = true; startReview(o, v); };
@@ -682,7 +683,7 @@ async function reviewBox(o, writing = false) {
     return;
   }
   closeWorld();
-  $("after").innerHTML = `<p class="sm" style="margin:0 0 4px;color:var(--green)">✓ World ID verified. Public on Arkiv for 90 days, one review per order.</p><div class="row"><select id="stars" aria-label="Rating">${[5, 4, 3, 2, 1].map((n) => `<option value="${n}">${n} star${n > 1 ? "s" : ""}</option>`).join("")}</select></div><div class="row"><textarea id="revText" maxlength="280" aria-label="Review text" placeholder="How did ${esc(o.shopName)} do? Public: no names, emails, links or phone numbers."></textarea></div><div class="row"><button id="revBtn">Publish review</button></div>`;
+  $("after").innerHTML = `<p class="sm" style="margin:0 0 4px;color:var(--green)">✓ World ID verified. Public on Arkiv for 90 days, one review per order.</p><div class="row"><select id="stars" aria-label="Rating">${[5, 4, 3, 2, 1].map((n) => `<option value="${n}">${n} star${n > 1 ? "s" : ""}</option>`).join("")}</select></div><div class="row"><textarea id="revText" maxlength="120" aria-label="Review text" placeholder="How did ${esc(o.shopName)} do? Public: no names, emails, links or phone numbers."></textarea></div><div class="row"><button id="revBtn">Publish review</button></div>`;
   $("revBtn").onclick = async () => { $("revBtn").disabled = true; $("revErr").textContent = ""; try { await json(`/api/pc/orders/${o.orderId}/review`, { rating: Number($("stars").value), text: $("revText").value }); reviewBox(o); } catch (e) { $("revErr").textContent = e.message; $("revBtn").disabled = false; } };
 }
 

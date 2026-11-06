@@ -8,7 +8,7 @@ Four entity types. Every one has an owner wallet and an expiry, and the app chec
 |---|---|---|---|
 | `ethpc.pc-offers.v1`: one product a shop sells | That shop's own wallet (one wallet per shop) | 7 days, renewable by the shop (`npm run shop -- renew`) | 44 |
 | `ethpc.pc-sellers.v1`: a shop's profile | That shop's own wallet | 30 days | 3 |
-| `ethpc.pc-reviews.v1`: a review of a shop | The review publisher wallet | 90 days, for every review | 31 |
+| `ethpc.pc-reviews.v2`: a review of a shop | The review publisher wallet | 90 days, for every review | 32 |
 | `ethpc.listings.usdc`: a paid API's listing (price, endpoint, payee) | The approved service owner wallet | 1 day; re-published before a demo | 12 (incl. `pc-recommend`) |
 
 ## Writer wallets
@@ -42,10 +42,12 @@ Four entity types. Every one has an owner wallet and an expiry, and the app chec
 ### `ethpc.pc-sellers.v1`
 `sellerId` (indexed), `name`, `city`, `about`, `endpoint`, `hederaPayTo`, `deliveryDays` (u64). Read with `sellerId IN (registered shops)`.
 
-### `ethpc.pc-reviews.v1` (`src/reviews.mjs`)
-`sellerId` (indexed), `orderRef` (indexed, a one-way hash of the order, never the order ID), `packageId`, `rating` (u64, indexed), `text` (bytes, max 280 chars; emails, links and phone numbers refused), `kind` (indexed), `human`, `createdAt` (u64, indexed). Read with `sellerId = X` **and** `ownedBy(publisher wallet)`, so reviews written by anyone else never count. No name, email, World ID or address is stored.
+### `ethpc.pc-reviews.v2` (`src/reviews.mjs`)
+`sellerId` (indexed), `orderRef` (indexed, a one-way hash of the order, never the order ID), `packageId`, `rating` (u64, indexed), `text` (str, at most 128 bytes, about 120 characters, Arkiv's string limit; emails, links and phone numbers refused), `kind` (indexed), `human`, `createdAt` (u64, indexed). Read with `sellerId = X` **and** `ownedBy(publisher wallet)`, so reviews written by anyone else never count. No name, email, World ID or address is stored.
 
-The 31 live reviews are **sample reviews seeded by the team** (`kind = "sample"`, `npm run seed:reviews`) so the ratings aren't empty at launch. Reviews written through the app after a World ID check carry `human = "world-verified"`.
+v2 stores `text` as a plain string so the review reads as written on the explorer; v1 stored it as bytes, which the explorer only shows as a hash. All v1 reviews were copied to v2 (same text, rating, labels and remaining lifetime) and the v1 entries deleted. In the app, every review links to its entry on the explorer.
+
+31 of the 32 live reviews are **sample reviews seeded by the team** (`kind = "sample"`, `npm run seed:reviews`) so the ratings aren't empty at launch. Reviews written through the app after a World ID check carry `human = "world-verified"`.
 
 ### `ethpc.listings.usdc` (`src/directory.mjs`)
 `lk` (listing key, indexed), `name`, `category` (indexed), `region` (indexed), `priceTinybars` (price in USDC's smallest unit, indexed string), `freshnessMinutes` (indexed), `endpoint`, `hederaPayTo`. The agent finds the paid recommendation API here (`lk = "pc-recommend"`), and only listings owned by an approved wallet count.

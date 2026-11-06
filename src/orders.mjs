@@ -8,7 +8,7 @@
 // This state stays in the database after the Arkiv review expires, so an expired review can't be posted again.
 import { createHash, randomUUID } from "node:crypto";
 import { startDevice, pollDevice } from "./world.mjs";
-import { publishReview, readReviews, summarise, clearSimReviews, REVIEW_DAYS, KIND } from "./reviews.mjs";
+import { publishReview, readReviews, summarise, clearSimReviews, REVIEW_DAYS, KIND, MAX_TEXT_BYTES, textBytes } from "./reviews.mjs";
 import { showUsdc } from "./pc-catalog.mjs";
 import { url } from "./common.mjs";
 
@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS reviews(order_id TEXT PRIMARY KEY, seller_id TEXT, re
     const o = order(q.params.id); if (!o) return r.status(404).json({});
     const rating = Number(q.body?.rating), text = String(q.body?.text ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim();
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) return r.status(400).json({ error: "rating must be a whole number from 1 to 5" });
-    if (text.length < 3 || text.length > 280) return r.status(400).json({ error: "write 3 to 280 characters" });
+    if (text.length < 3 || textBytes(text) > MAX_TEXT_BYTES) return r.status(400).json({ error: `write 3 to about ${MAX_TEXT_BYTES - 8} characters (Arkiv keeps up to ${MAX_TEXT_BYTES} bytes)` });
     if (CONTACT.test(text)) return r.status(400).json({ error: "reviews are public: leave out emails, links and phone numbers" });
     if (o.state !== "delivered") return r.status(409).json({ error: "only a delivered order can be reviewed" });
     if (one("SELECT 1 FROM reviews WHERE order_id=?", o.id)) return r.status(409).json({ error: "this order already has a review" });

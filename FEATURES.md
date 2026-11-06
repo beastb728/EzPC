@@ -51,7 +51,7 @@ Status: ✅ live on testnet (Hedera / Arkiv / World) · 🧪 covered by tests in
 | Shop catalogue: 44 offers and 3 profiles, each shop publishing from its own wallet (`ethpc.pc-offers.v1`, `ethpc.pc-sellers.v1`) | ✅ | `src/pc-directory.mjs`, `scripts-shop.mjs` |
 | Trust rules on every read: owner = the shop's registered wallet, payee = its Hedera account, in stock, not expired | ✅ | `src/pc-directory.mjs` |
 | Shops update price and stock (`patchEntity`) and renew offers (`extendEntity`) | ✅ | `npm run shop` |
-| Reviews on Arkiv with a 90-day expiry; rating from active reviews only (`ethpc.pc-reviews.v1`) | ✅ | `src/reviews.mjs` |
+| Reviews on Arkiv with a 90-day expiry; rating from active reviews only (`ethpc.pc-reviews.v2`, text readable on the explorer) | ✅ | `src/reviews.mjs` |
 | Paid API discovery: the recommendation service's listing, price and payee (`ethpc.listings.usdc`); impostor listings ignored | ✅ | `src/directory.mjs` |
 | A query anyone can run with no keys | ✅ | `arkiv/query.mjs` |
 | **View on Arkiv** links: every part in a PC option and every shop review links to its entry on the public explorer (`rabdi.explorer.arkiv.network/entity/<key>`), so anyone can check it's really on chain | ✅ | `public/index.html`, `src/planner.mjs` |
@@ -70,6 +70,6 @@ Status: ✅ live on testnet (Hedera / Arkiv / World) · 🧪 covered by tests in
 - The shops and their stock are sample data, published on Arkiv by the team's shop wallets.
 - The PC checkout is a mock: no card details are collected, nothing is charged, no order ships.
 - Performance verdicts are labelled sample estimates, not benchmarks.
-- The 31 reviews on Arkiv are seeded samples; reviews written in the app after a World ID check are real.
+- 31 of the 32 reviews on Arkiv are seeded samples; reviews written in the app after a World ID check are real.
 - World ID runs on the real service (`auth.world.org`, Orb level required); the sandbox remains available as a fallback by removing `WORLD_USE=production`.
 - One user per running copy.

@@ -6,13 +6,16 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { hexToString, stringToHex } from "viem";
 import { modes } from "./common.mjs";
 
 export const REVIEW_DAYS = 90;
 export const KIND = "demo-order"; // purchases are simulated, so every review is labelled a demo-order review
 export const SAMPLE_KIND = "sample"; // seeded by the team (sample-reviews.mjs): not World ID verified, not tied to an order
-const SCHEMA = "ethpc.pc-reviews.v1";
+// v2 stores the text as a plain string, so the review reads as written on the Arkiv explorer (v1 stored bytes, which the
+// explorer shows only as a hash). Arkiv caps a string at 128 UTF-8 bytes, so a review is at most that long.
+const SCHEMA = "ethpc.pc-reviews.v2";
+export const MAX_TEXT_BYTES = 128;
+export const textBytes = (t) => Buffer.byteLength(String(t ?? ""), "utf8");
 const BLOCK_MS = 2000;
 const live = () => modes().arkiv === "live";
 const file = () => process.env.REVIEWS_FILE || "data/demo-reviews.json";
@@ -26,8 +29,8 @@ const publisher = async () => {
 async function arkiv(withKey) {
   const [{ createPublicClient, createWalletClient, ExpirationTime }, { rabdi }, { http }, { privateKeyToAccount }, s, q] = await Promise.all([import("@arkiv-network/sdk"), import("@arkiv-network/sdk/chains"), import("viem"), import("viem/accounts"), import("@arkiv-network/sdk/schema"), import("@arkiv-network/sdk/query")]);
   const chain = rabdi({ accessKey: process.env.ARKIV_ACCESS_KEY ?? "" });
-  const Reviews = s.defineSchema(SCHEMA, { sellerId: s.str().indexed(), orderRef: s.str().indexed(), packageId: s.str(), rating: s.u64().indexed(), text: s.bytes(), kind: s.str().indexed(), human: s.str(), createdAt: s.u64().indexed() });
-  const out = { Reviews, q, u64: s.u64, bytes: s.bytes, ExpirationTime, pub: createPublicClient({ chain, transport: http(undefined, { timeout: 8000, retryCount: 1 }) }) };
+  const Reviews = s.defineSchema(SCHEMA, { sellerId: s.str().indexed(), orderRef: s.str().indexed(), packageId: s.str(), rating: s.u64().indexed(), text: s.str(), kind: s.str().indexed(), human: s.str(), createdAt: s.u64().indexed() });
+  const out = { Reviews, q, u64: s.u64, ExpirationTime, pub: createPublicClient({ chain, transport: http(undefined, { timeout: 8000, retryCount: 1 }) }) };
   if (withKey) out.wallet = createWalletClient({ chain, transport: http(), account: privateKeyToAccount(process.env.ARKIV_PRIVATE_KEY) });
   return out;
 }
@@ -35,17 +38,20 @@ const readSim = () => { try { return JSON.parse(readFileSync(file(), "utf8")); }
 const writeSim = (list) => { mkdirSync(dirname(file()), { recursive: true }); writeFileSync(file(), JSON.stringify(list)); };
 export const clearSimReviews = () => writeSim([]);
 
-// r: { sellerId, orderId, packageId, rating 1..5, text, human: "world-verified" | "simulated" | "none", kind?, createdAt? }
+// r: { sellerId, orderId | orderRef, packageId, rating 1..5, text, human: "world-verified" | "simulated" | "none", kind?, createdAt?, lifetimeSeconds? }
+// lifetimeSeconds keeps a moved review's remaining life (the v1 → v2 move); otherwise a review lives REVIEW_DAYS.
 export async function publishReview(r) {
-  const rec = { sellerId: r.sellerId, orderRef: orderRef(r.orderId), packageId: r.packageId, rating: r.rating, text: r.text, kind: r.kind ?? KIND, human: r.human, createdAt: r.createdAt ?? Math.floor(Date.now() / 1000) };
+  const rec = { sellerId: r.sellerId, orderRef: r.orderRef ?? orderRef(r.orderId), packageId: r.packageId, rating: r.rating, text: r.text, kind: r.kind ?? KIND, human: r.human, createdAt: r.createdAt ?? Math.floor(Date.now() / 1000) };
+  if (textBytes(rec.text) > MAX_TEXT_BYTES) throw new Error(`review text is over ${MAX_TEXT_BYTES} bytes`);
+  const life = Math.max(2, Math.round((r.lifetimeSeconds ?? REVIEW_DAYS * 86400) / 2) * 2); // a whole number of 2 s blocks
   if (!live()) {
-    const expiresAt = Date.now() + REVIEW_DAYS * 86400_000, entityKey = `sim:review:${rec.orderRef}`;
+    const expiresAt = Date.now() + life * 1000, entityKey = `sim:review:${rec.orderRef}`;
     writeSim([...readSim(), { ...rec, expiresAt, entityKey, source: "simulated" }]);
     return { entityKey, expiresAt, source: "simulated" };
   }
   const a = await arkiv(true);
-  const { entityKey } = await a.wallet.createEntity(a.Reviews, { ...rec, rating: a.u64(rec.rating), createdAt: a.u64(rec.createdAt), text: a.bytes(stringToHex(rec.text)) }, { expiration: a.ExpirationTime.fromDays(REVIEW_DAYS) });
-  return { entityKey, expiresAt: Date.now() + REVIEW_DAYS * 86400_000, source: "arkiv" };
+  const { entityKey } = await a.wallet.createEntity(a.Reviews, { ...rec, rating: a.u64(rec.rating), createdAt: a.u64(rec.createdAt), text: rec.text }, { expiration: a.ExpirationTime.fromSeconds(life) });
+  return { entityKey, expiresAt: Date.now() + life * 1000, source: "arkiv" };
 }
 
 // Active reviews for one seller: World ID verified ones first, then newest first.
@@ -57,7 +63,7 @@ export async function readReviews(sellerId) {
   const fields = Object.fromEntries(["$key", "$owner", "$expiresAt", "sellerId", "orderRef", "packageId", "rating", "text", "kind", "human", "createdAt"].map((k) => [k, true]));
   const res = await a.pub.select(fields).from(a.Reviews).where(a.q.eq("sellerId", sellerId)).ownedBy(owner).fetch();
   const block = BigInt(res.blockNumber), v = (e, k) => e[k]?.value;
-  return res.entities.map((e) => ({ sellerId: v(e, "sellerId"), orderRef: v(e, "orderRef"), packageId: v(e, "packageId"), rating: Number(v(e, "rating")), text: (() => { try { return hexToString(v(e, "text")); } catch { return ""; } })(), kind: v(e, "kind"), human: v(e, "human"), createdAt: Number(v(e, "createdAt")), expiresAt: Date.now() + Number(BigInt(e.$expiresAt) - block) * BLOCK_MS, entityKey: e.$key, source: "arkiv" }))
+  return res.entities.map((e) => ({ sellerId: v(e, "sellerId"), orderRef: v(e, "orderRef"), packageId: v(e, "packageId"), rating: Number(v(e, "rating")), text: String(v(e, "text") ?? ""), kind: v(e, "kind"), human: v(e, "human"), createdAt: Number(v(e, "createdAt")), expiresAt: Date.now() + Number(BigInt(e.$expiresAt) - block) * BLOCK_MS, entityKey: e.$key, source: "arkiv" }))
     .filter((x) => x.expiresAt > Date.now() && x.rating >= 1 && x.rating <= 5).sort(order);
 }
 // Average of the active reviews only, and how many are World ID verified vs team samples.

@@ -10,7 +10,7 @@ const { planPackages } = await import("../src/planner.mjs");
 const { mkdtempSync, writeFileSync } = await import("node:fs");
 const { tmpdir } = await import("node:os");
 process.env.REVIEWS_FILE = `${mkdtempSync(`${tmpdir()}/al-rev-`)}/reviews.json`;
-const { readReviews, summarise, publishReview, seedSampleReviews, REVIEW_DAYS } = await import("../src/reviews.mjs");
+const { readReviews, summarise, publishReview, seedSampleReviews, REVIEW_DAYS, MAX_TEXT_BYTES } = await import("../src/reviews.mjs");
 
 const part = (id) => ({ ...PRODUCTS[id], productId: id });
 const good = () => ({ cpu: part("r7-7800x3d"), motherboard: part("b650-tomahawk"), ram: part("ddr5-32-6000"), gpu: part("rtx4080s"), storage: part("990pro-2tb"), psu: part("rm850x"), case: part("fractal-north"), cooler: part("nh-d15") });
@@ -103,6 +103,11 @@ test("V1 the seller rating counts only active reviews; expired ones (positive or
   assert.equal(summarise(await readReviews("voltforge")).label, "No recent reviews");
   for (const rating of [1, 5]) { const out = await publishReview({ sellerId: "voltforge", orderId: `o${rating}`, packageId: "x", rating, text: "t", human: "simulated" }); assert.ok(Math.abs(out.expiresAt - (Date.now() + REVIEW_DAYS * 86400_000)) < 5000); }
   assert.equal(REVIEW_DAYS, 90);
+});
+test("V3 review text fits Arkiv's string limit: up to MAX_TEXT_BYTES is published as written, one byte more is refused", async () => {
+  const fits = "a".repeat(MAX_TEXT_BYTES), out = await publishReview({ sellerId: "rigroom", orderId: "len-ok", packageId: "x", rating: 4, text: fits, human: "simulated" });
+  assert.equal((await readReviews("rigroom")).find((r) => r.entityKey === out.entityKey).text, fits);
+  await assert.rejects(publishReview({ sellerId: "rigroom", orderId: "len-long", packageId: "x", rating: 4, text: "é".repeat(MAX_TEXT_BYTES / 2) + "a", human: "simulated" }), /over 128 bytes/);
 });
 test("V2 sample reviews: seeded once, labelled sample and never World ID verified, counted separately in the rating", async () => {
   writeFileSync(process.env.REVIEWS_FILE, "[]");

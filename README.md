@@ -74,7 +74,7 @@ Shops publish their parts and prices to Arkiv (Rabdi testnet) from their own wal
 | Entity type | Writer wallet | Live |
 |---|---|---|
 | `ethpc.pc-offers.v1`, `ethpc.pc-sellers.v1` | pixelbazaar `0x00d4a9331add38bb2e0d7e32da9f687bf05a8d32`, voltforge `0xc0020afb29fae96b31614c25d6d3ac23eb1fb5ff`, rigroom `0xf995383aba3b72151501ad4b49b475afa7390f1d` | 44 offers, 3 profiles |
-| `ethpc.pc-reviews.v1`, `ethpc.listings.usdc` | `0x28ad3aa463b31584fac2dbee6958ab5dde79de6c` | 31 reviews (seeded samples), 12 listings |
+| `ethpc.pc-reviews.v2`, `ethpc.listings.usdc` | `0x28ad3aa463b31584fac2dbee6958ab5dde79de6c` | 32 reviews (31 seeded samples, 1 written in the app), 12 listings |
 
 **Run a query yourself (no keys):** graphics cards in stock, still on offer, at or under 800 USDC, signed by the shops' own wallets:
 

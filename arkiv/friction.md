@@ -26,6 +26,11 @@ What got in the way while building EthPC on Rabdi, and what would help. Each ite
 **Would help:** a plain typed result (`entity.sellerId === "rigroom"`) and a documented, normalised `$owner`.
 **Reproduce:** `select({ $owner: true, sellerId: true })` on any `ethpc.pc-sellers.v1` entity.
 
+## 6. `bytes` fields don't show on the explorer, and `str` is capped at 128 bytes
+**What happened:** we stored review text as `bytes` (as the SDK's README does for a body), because a `str` holds at most 128 UTF-8 bytes. The explorer then shows the review only as "64 bytes, keccak 0x…", so a user who clicks through can't read it. We moved reviews to `ethpc.pc-reviews.v2` with `text` as `str` and capped reviews at 128 bytes, copying the 32 existing reviews and deleting the v1 entries.
+**Would help:** the explorer decoding `bytes` as UTF-8 text when it is valid UTF-8 (or a content-type hint on the attribute), and the 128-byte `str` limit stated in the schema docs, not only in the SDK source.
+**Reproduce:** create an entity with `text: bytes()` set from `stringToHex("hello")` and open it on rabdi.explorer.arkiv.network.
+
 ## What worked well
 - Owner-scoped queries (`ownedBy`) made "only the shop's own wallet counts" a one-liner.
 - `extendEntity` and `patchEntity` let a shop renew offers and change price or stock without new entities.

@@ -26,4 +26,4 @@ EthPC is a marketplace where an AI agent buys on a user's behalf. The shop catal
 
 ## Honest limits
 - The review publisher wallet belongs to the team, so the team could still edit or delete reviews. Shops can't.
-- The 31 reviews live today are seeded samples (`kind = "sample"`), so ratings aren't empty at launch.
+- 31 of the 32 reviews live today are seeded samples (`kind = "sample"`), so ratings aren't empty at launch.
