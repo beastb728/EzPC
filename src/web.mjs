@@ -81,6 +81,8 @@ a.get("/api/pc/offers", h(async (q, r) => pass(r, await get(url("agent", `/pc/of
 a.get("/api/pc/sellers", h(async (_, r) => pass(r, await get(url("agent", "/pc/sellers"), T))));
 // "Pay with card" is SIMULATED: the page sends no card details; only the recommendation, package and quote IDs are relayed.
 a.post("/api/pc/negotiate", h(async (q, r) => pass(r, await post(url("agent", "/pc/negotiate"), { requestId: q.body?.requestId, packageId: q.body?.packageId }, T))));
+a.post("/api/pc/negotiations", h(async (q, r) => pass(r, await post(url("agent", "/pc/negotiations"), { requestId: q.body?.requestId, packageId: q.body?.packageId }, T))));
+a.get("/api/pc/negotiations/:id", h(async (q, r) => pass(r, await get(url("agent", `/pc/negotiations/${enc(q.params.id)}`), T))));
 a.post("/api/pc/checkout", h(async (q, r) => pass(r, await post(url("guard", "/orders"), { requestId: q.body?.requestId, packageId: q.body?.packageId, quoteId: q.body?.quoteId }, T))));
 a.get("/api/pc/orders/:id", h(async (q, r) => pass(r, await get(url("guard", `/orders/${enc(q.params.id)}`), T))));
 a.post("/api/pc/orders/:id/deliver", h(async (q, r) => pass(r, await post(url("guard", `/orders/${enc(q.params.id)}/deliver`), {}, T))));

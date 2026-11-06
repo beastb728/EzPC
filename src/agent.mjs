@@ -181,19 +181,37 @@ a.get("/pc/recommend/:rid", pcToken, pcH(async (q, r) => {
 // The agent haggles with the chosen shop's AI sales agent over A2A for the whole package. The package and its list price
 // come from the Guard's copy of the paid recommendation, never from the browser. Code caps every offer at the list price;
 // the shop's floor stays with the shop. The result is a quote for the SIMULATED card checkout: no crypto is involved.
-a.post("/pc/negotiate", pcToken, pcH(async (q, r) => {
+// The package to negotiate: it must be in a paid recommendation. Returns { p, listing } or { status, error }.
+async function negotiationFor(q) {
   const x = await get(url("guard", `/purchases/${encodeURIComponent(String(q.body?.requestId ?? ""))}`), T);
-  if (x.status !== 200 || x.body.listingKey !== API || x.body.status !== "paid") return r.status(409).json({ error: "no paid recommendation with that ID" });
+  if (x.status !== 200 || x.body.listingKey !== API || x.body.status !== "paid") return { status: 409, error: "no paid recommendation with that ID" };
   const p = (x.body.result?.packages ?? []).find((k) => k.id === String(q.body?.packageId ?? ""));
-  if (!p) return r.status(404).json({ error: "that package isn't in this recommendation" });
-  const events = [], log = (text, kind = "info") => events.push({ at: Date.now(), text, kind });
-  const listing = { key: `pkg:${p.id}`, name: `${p.shopName} ${p.label}`, priceTinybars: p.cost.total, endpoint: url("sellers", `/shops/${p.sellerId}`), unit: { symbol: "USDC", decimals: 6 }, openShare: 0.85, acceptShare: 0.97 };
+  if (!p) return { status: 404, error: "that package isn't in this recommendation" };
+  return { p, listing: { key: `pkg:${p.id}`, name: `${p.shopName} ${p.label}`, priceTinybars: p.cost.total, endpoint: url("sellers", `/shops/${p.sellerId}`), unit: { symbol: "USDC", decimals: 6 }, openShare: 0.85, acceptShare: 0.97 } };
+}
+async function runNegotiation({ p, listing }, log) {
   log(`Opens a negotiation with ${p.shopName}'s sales agent over A2A for the whole package (list ${(Number(p.cost.total) / 1e6).toFixed(2)} USDC)`);
-  let quote = null;
-  try { quote = await aiNegotiate({ listing, maxPrice: p.cost.total, log }); }
-  catch (e) { log(`Negotiation failed (${cleanError(e)}); the list price stands`, "bad"); }
-  r.json({ packageId: p.id, sellerId: p.sellerId, listTotal: p.cost.total, quote, events });
+  try { return await aiNegotiate({ listing, maxPrice: p.cost.total, log }); }
+  catch (e) { log(`Negotiation failed (${cleanError(e)}); the list price stands`, "bad"); return null; }
+}
+// Negotiates and answers once it's over, with every message.
+a.post("/pc/negotiate", pcToken, pcH(async (q, r) => {
+  const n = await negotiationFor(q); if (n.error) return r.status(n.status).json({ error: n.error });
+  const events = [], quote = await runNegotiation(n, (text, kind = "info") => events.push({ at: Date.now(), text, kind }));
+  r.json({ packageId: n.p.id, sellerId: n.p.sellerId, listTotal: n.p.cost.total, quote, events });
 }));
+// The same negotiation, followed live: start it, then read its messages as they happen until status is "done".
+const negotiations = new Map();
+a.post("/pc/negotiations", pcToken, pcH(async (q, r) => {
+  const n = await negotiationFor(q); if (n.error) return r.status(n.status).json({ error: n.error });
+  const job = { id: randomUUID(), status: "running", packageId: n.p.id, sellerId: n.p.sellerId, listTotal: n.p.cost.total, quote: null, events: [] };
+  negotiations.set(job.id, job);
+  if (negotiations.size > 200) negotiations.delete(negotiations.keys().next().value);
+  r.json({ id: job.id });
+  job.quote = await runNegotiation(n, (text, kind = "info") => job.events.push({ at: Date.now(), text, kind }));
+  job.status = "done";
+}));
+a.get("/pc/negotiations/:id", pcToken, (q, r) => { const j = negotiations.get(q.params.id); j ? r.json(j) : r.status(404).json({ error: "no such negotiation" }); });
 // Free reads: the raw offers and the shop profiles.
 a.get("/pc/offers", pcToken, pcH(async (q, r) => r.json({ source: offersSource(), offers: (await allOffers()).filter((o) => !q.query.category || o.category === String(q.query.category)) })));
 let sellerCache = null; // last good seller list, used if Arkiv doesn't answer

@@ -179,6 +179,9 @@ dialog.cong{max-width:420px;overflow:visible;text-align:center}
 @keyframes cgfly{0%{transform:translate(0,0) rotate(0);opacity:1}100%{transform:translate(var(--x),var(--y)) rotate(220deg);opacity:0}}
 button.nego{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;padding:12px;font-size:14px;background:var(--blue-w);color:var(--blue);border:1.5px dashed var(--blue)}button.nego:hover:not(:disabled){background:#e0e8fd;border-color:var(--blue-h);color:var(--blue-h)}button.nego:disabled{background:var(--blue-w);border-color:var(--blue-s);color:var(--blue);opacity:.8}
 .nego-note{display:block;text-align:center;font-size:12px;color:var(--mut);margin-top:6px}
+.nego-live{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px;padding:12px;border-radius:6px;background:var(--blue-w);color:var(--blue);font-weight:600;font-size:13.5px}
+.typing{display:inline-flex;gap:4px}.typing i{width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1s infinite}.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+.log.live{display:block;min-height:46px}.log .fresh{animation:pop .4s ease-out}
 
 @media(max-width:780px){
   .app{display:flex;flex-direction:column}
@@ -544,19 +547,36 @@ async function checkout(pid) {
   const existing = (await json(`/api/pc/orders?search=${RES.rid}`).catch(() => [])).find((o) => o.packageId === pid);
   if (existing) { S.order = existing.orderId; save(); location.href = `/order?id=${encodeURIComponent(existing.orderId)}`; return; }
   const quote = () => { const q = S.quotes?.[pid]; return q && q.expiresAt > Date.now() ? q : null; };
-  const render = (log = "") => {
+  const render = (log = "", live = false) => {
     const q = quote();
     dlg(`<h2>Checkout</h2><p class="sm mut" style="margin:2px 0 0">${esc(b.label)} from ${esc(b.shopName)}. ${ratingText(b.sellerRating)}</p>
       <table><tr><th>Part</th><th class="n">Price</th></tr>${[...b.components, ...b.peripherals].map((l) => `<tr><td>${line(l)}</td><td class="n">${usd(l.unitPrice)}</td></tr>`).join("")}<tr><td class="mut">Delivery</td><td class="n">${b.cost.delivery === "0" ? "free" : usd(b.cost.delivery)}</td></tr></table>
       <div class="dtotal">${q ? `${usd(q.price)}<span class="price-old">${usd(b.cost.total)}</span>` : usd(b.cost.total)}</div>
-      <div style="margin:2px 0">${q ? `<p class="sm" style="margin:0;color:var(--green)">✓ Price your agent negotiated with the shop's agent. The shop confirms it at checkout.</p>` : `<button class="nego" id="nego">${svg(I.sparkle, 16)}Let my agent negotiate a better price</button><span class="nego-note">Your agent haggles with the shop's agent (A2A). You still decide whether to pay.</span>`}</div><div class="log">${log}</div>
+      <div style="margin:2px 0">${q ? `<p class="sm" style="margin:0;color:var(--green)">✓ Price your agent negotiated with the shop's agent. The shop confirms it at checkout.</p>`
+        : live ? `<div class="nego-live" role="status"><span class="typing" aria-hidden="true"><i></i><i></i><i></i></span>Your agent is negotiating with ${esc(b.shopName)}'s agent…</div>`
+        : `<button class="nego" id="nego">${svg(I.sparkle, 16)}Let my agent negotiate a better price</button><span class="nego-note">Your agent haggles with the shop's agent (A2A). You still decide whether to pay.</span>`}</div><div class="log${live ? " live" : ""}" id="negoLog" aria-live="polite">${log}</div>
       <div class="paycard"><div class="chip-g"></div><div class="num">4242 4242 4242 4242</div><div class="lb">Card ending in 4242</div></div>
-      <div class="pay"><button id="pay">Pay with credit card</button></div>
+      <div class="pay"><button id="pay"${live ? " disabled" : ""}>Pay with credit card</button></div>
       <p class="err" id="payErr"></p>`);
     if ($("nego")) $("nego").onclick = async () => {
-      $("nego").disabled = true; $("nego").textContent = "Negotiating with the shop's agent…";
-      try { const n = await json("/api/pc/negotiate", { requestId: RES.rid, packageId: pid }); if (n.quote) { S.quotes = { ...(S.quotes ?? {}), [pid]: { id: n.quote.id, price: n.quote.price, expiresAt: n.quote.expiresAt } }; save(); } render(n.events.map((e) => `<div class="${esc(e.kind)}">${esc(clean(e.text))}</div>`).join("")); if (n.quote) celebrate(b.cost.total, n.quote.price, b.shopName); }
-      catch (e) { render(`<div class="bad">${esc(e.message)}</div>`); }
+      $("nego").disabled = true;
+      let job; try { job = await json("/api/pc/negotiations", { requestId: RES.rid, packageId: pid }); } catch (e) { return render(`<div class="bad">${esc(e.message)}</div>`); }
+      render("", true);
+      // Each message appears as it happens, at most one every 0.9 s so it can be read even when the agents answer instantly.
+      const say = (t) => /declined: unknown listing/.test(t) ? `${t.split("'s agent declined")[0]}'s agent has no record of this offer. It was recommended before the shop's agent restarted, so run a new search to negotiate.` : t;
+      const line1 = (e, cls = "") => `<div class="${esc(e.kind)}${cls}">${esc(clean(say(e.text)))}</div>`;
+      let n = null, shown = 0, misses = 0;
+      while ($("dlg").open && $("negoLog")) {
+        const evs = n?.events ?? [];
+        if (shown < evs.length) { $("negoLog").insertAdjacentHTML("beforeend", line1(evs[shown++], " fresh")); $("negoLog").scrollTop = $("negoLog").scrollHeight; await sleep(900); continue; }
+        if (n?.status === "done") break;
+        try { n = await json(`/api/pc/negotiations/${job.id}`); misses = 0; } catch (e) { if (++misses > 5) { n = { status: "done", quote: null, events: [...evs, { kind: "bad", text: `Lost track of the negotiation: ${e.message}` }] }; } else await sleep(600); }
+        if (n?.status !== "done" && shown >= (n?.events ?? []).length) await sleep(500);
+      }
+      if (!$("dlg").open || !n) return;
+      if (n.quote) { S.quotes = { ...(S.quotes ?? {}), [pid]: { id: n.quote.id, price: n.quote.price, expiresAt: n.quote.expiresAt } }; save(); }
+      render(n.events.map((e) => line1(e)).join(""));
+      if (n.quote) celebrate(b.cost.total, n.quote.price, b.shopName);
     };
     $("pay").onclick = async () => {
       $("pay").disabled = true; $("pay").textContent = "Placing your order…";
