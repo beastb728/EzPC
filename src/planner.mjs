@@ -8,7 +8,7 @@ import { shopById, showUsdc } from "./pc-catalog.mjs";
 
 export const WANTED = 3; // options per recommendation, when enough matching inventory exists
 const str = (o) => JSON.parse(JSON.stringify(o, (_, x) => (typeof x === "bigint" ? String(x) : x)));
-const line = (o) => ({ category: o.category, offerId: o.offerId, sellerId: o.sellerId, productId: o.productId, brand: o.brand, model: o.model, condition: o.condition, warrantyMonths: o.warrantyMonths, unitPrice: o.priceUnits, qty: 1, deliveryFeeUnits: o.deliveryFeeUnits, freeOverUnits: o.freeOverUnits, deliveryDays: o.deliveryDays, specs: o.specs });
+const line = (o) => ({ category: o.category, offerId: o.offerId, sellerId: o.sellerId, productId: o.productId, brand: o.brand, model: o.model, condition: o.condition, warrantyMonths: o.warrantyMonths, unitPrice: o.priceUnits, qty: 1, deliveryFeeUnits: o.deliveryFeeUnits, freeOverUnits: o.freeOverUnits, deliveryDays: o.deliveryDays, specs: o.specs, entityKey: o.entityKey ?? null });
 const shopName = (id) => shopById(id)?.name ?? id;
 
 function needs(req) {

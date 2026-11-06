@@ -125,7 +125,7 @@ ul.checks{margin:8px 0 0;padding:0;list-style:none}ul.checks li{padding:2px 0}ul
 .v-likely{color:var(--green)}.v-borderline{color:var(--amber)}.v-unlikely{color:var(--red)}
 table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:8px 0;border-top:1px solid var(--line);text-align:left;vertical-align:top}th{font-weight:600;color:var(--mut);font-size:11px;letter-spacing:.06em;text-transform:uppercase;border-top:0}
 td+td,th+th{padding-left:12px}td.n,th.n{text-align:right;white-space:nowrap}tr.total td{font-weight:700;font-size:14px}
-.rev{border-top:1px solid var(--line);padding:9px 0}.rev .stars{color:#f5a524;letter-spacing:1px}
+.rev{border-top:1px solid var(--line);padding:9px 0}.arklink{font-size:12px;white-space:nowrap;margin-left:6px}.arknote{margin:10px 0 0}.rev .stars{color:#f5a524;letter-spacing:1px}
 .log{border-radius:6px;padding:6px 12px;margin-top:10px;max-height:220px;overflow:auto;font-size:12.5px;background:var(--bg);border:1px solid var(--line)}.log:empty{display:none}
 .log div{padding:5px 0;border-bottom:1px solid var(--line)}.log div:last-child{border:0}.log .good{color:var(--green)}.log .bad{color:var(--red)}.log .pause{color:var(--amber)}
 .kv{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;font-size:13px}.kv span:nth-child(odd){color:var(--mut)}
@@ -519,6 +519,8 @@ async function stepup(rid) {
 const CAT = { cpu: "CPU", gpu: "GPU", ram: "RAM", psu: "PSU", ssd: "SSD" };
 const cat = (c) => esc(CAT[c] ?? String(c ?? "").charAt(0).toUpperCase() + String(c ?? "").slice(1));
 const line = (l) => `${esc(l.brand)} ${esc(l.model)}`;
+// Link to the entry on Arkiv's public explorer, so anyone can check it is really on chain. Only real Arkiv entity keys get one.
+const arkivLink = (k) => /^0x[0-9a-f]{64}$/i.test(String(k ?? "")) ? `<a class="arklink" href="https://rabdi.explorer.arkiv.network/entity/${k}" target="_blank" rel="noopener" title="Open this entry on the Arkiv explorer">View on Arkiv ↗</a>` : "";
 const ratingText = (r) => r?.average != null ? `★ ${r.average.toFixed(1)} from ${r.count} World ID verified review${r.count === 1 ? "" : "s"}` : "No recent reviews";
 const VERDICT = { likely: "Likely to reach", borderline: "Borderline for", unlikely: "Unlikely to reach" };
 const VPILL = { likely: "ok", borderline: "ask", unlikely: "no" };
@@ -538,7 +540,7 @@ function results(rid, res) {
         <p class="why1">${esc(clean(b.why[1] ?? b.why[0]))}</p></div>
         <div class="opt-foot"><div class="disc"><button class="textbtn" data-panel="why${i}" aria-expanded="false">Why it fits</button><button class="textbtn" data-panel="all${i}" aria-expanded="false">All components</button><button class="textbtn" data-panel="rev${i}" data-seller="${esc(b.sellerId)}" aria-expanded="false">Seller reviews</button></div><button data-pick="${esc(b.id)}">Select this PC</button></div>
         <div class="dpanel" id="why${i}" hidden><ul class="why">${b.why.map(clean).filter(Boolean).map((w) => `<li>${esc(w)}</li>`).join("")}</ul><ul class="why trade">${b.tradeoffs.map(clean).filter(Boolean).map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>
-        <div class="dpanel" id="all${i}" hidden><table>${[...b.components, ...b.peripherals].map((l) => `<tr><td>${line(l)}${l.condition !== "new" ? ` <span class="v-borderline">(${esc(l.condition)}, ${l.warrantyMonths} mo)</span>` : ""}</td><td class="mut">${cat(l.category)}</td><td class="n">${usd(l.unitPrice)}</td></tr>`).join("")}</table><ul class="checks">${b.checks.map((k) => `<li class="${k.ok ? "" : "bad"}">${k.ok ? "✓" : "✗"} ${esc(k.check)}: ${esc(k.detail)}</li>`).join("")}</ul></div>
+        <div class="dpanel" id="all${i}" hidden><table>${[...b.components, ...b.peripherals].map((l) => `<tr><td>${line(l)}${l.condition !== "new" ? ` <span class="v-borderline">(${esc(l.condition)}, ${l.warrantyMonths} mo)</span>` : ""}${arkivLink(l.entityKey)}</td><td class="mut">${cat(l.category)}</td><td class="n">${usd(l.unitPrice)}</td></tr>`).join("")}</table>${[...b.components, ...b.peripherals].some((l) => arkivLink(l.entityKey)) ? `<p class="sm mut arknote">Each part is a live listing the shop published on Arkiv from its own wallet. Open one to check its price, stock and owner on chain.</p>` : ""}<ul class="checks">${b.checks.map((k) => `<li class="${k.ok ? "" : "bad"}">${k.ok ? "✓" : "✗"} ${esc(k.check)}: ${esc(k.detail)}</li>`).join("")}</ul></div>
         <div class="dpanel" id="rev${i}" hidden><div class="mut" style="padding-top:10px">Loading…</div></div></article>`;
     }).join("")}`;
   document.querySelectorAll("[data-pick]").forEach((el) => el.onclick = () => checkout(el.dataset.pick));
@@ -551,7 +553,7 @@ async function loadReviews(p, sellerId) {
   try {
     const j = await json(`/api/pc/reviews/${encodeURIComponent(sellerId)}`);
     const n = j.reviews.length, avg = n ? (j.reviews.reduce((t, r) => t + r.rating, 0) / n).toFixed(1) : null;
-    p.innerHTML = `<p class="mut" style="margin:10px 0 4px">${n ? `★ ${avg} from ${n} World ID verified review${n === 1 ? "" : "s"} in the last 90 days.` : "No reviews in the last 90 days."}</p>` + j.reviews.map((r) => `<div class="rev"><span class="pill ok">✓ World ID verified</span><div><span class="stars" aria-label="${r.rating} of 5">${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)}</span></div><div>${esc(r.text)}</div><div class="sm mut">${new Date(r.createdAt * 1000).toLocaleDateString()}, expires ${new Date(r.expiresAt).toLocaleDateString()}</div></div>`).join("");
+    p.innerHTML = `<p class="mut" style="margin:10px 0 4px">${n ? `★ ${avg} from ${n} World ID verified review${n === 1 ? "" : "s"} in the last 90 days.${j.reviews.some((r) => arkivLink(r.entityKey)) ? " Each one lives on Arkiv: open it to check." : ""}` : "No reviews in the last 90 days."}</p>` + j.reviews.map((r) => `<div class="rev"><span class="pill ok">✓ World ID verified</span><div><span class="stars" aria-label="${r.rating} of 5">${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)}</span></div><div>${esc(r.text)}</div><div class="sm mut">${new Date(r.createdAt * 1000).toLocaleDateString()}, expires ${new Date(r.expiresAt).toLocaleDateString()}${arkivLink(r.entityKey)}</div></div>`).join("");
   } catch (e) { p.innerHTML = `<p class="err">${esc(e.message)}</p>`; }
 }
 const dlg = (html) => { $("dlgBody").innerHTML = `<button class="x" id="dlgX" aria-label="Close">×</button>${html}`; $("dlgX").onclick = () => $("dlg").close(); if (!$("dlg").open) $("dlg").showModal(); };

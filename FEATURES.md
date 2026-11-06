@@ -54,6 +54,7 @@ Status: ✅ live on testnet (Hedera / Arkiv / World) · 🧪 covered by tests in
 | Reviews on Arkiv with a 90-day expiry; rating from active reviews only (`ethpc.pc-reviews.v1`) | ✅ | `src/reviews.mjs` |
 | Paid API discovery: the recommendation service's listing, price and payee (`ethpc.listings.usdc`); impostor listings ignored | ✅ | `src/directory.mjs` |
 | A query anyone can run with no keys | ✅ | `arkiv/query.mjs` |
+| **View on Arkiv** links: every part in a PC option and every shop review links to its entry on the public explorer (`rabdi.explorer.arkiv.network/entity/<key>`), so anyone can check it's really on chain | ✅ | `public/index.html`, `src/planner.mjs` |
 
 ## Agents
 | Feature | Status | Where |
