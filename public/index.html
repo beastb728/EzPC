@@ -32,7 +32,9 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--blue);bo
 body.landing{background:var(--paper)}
 .lnav{max-width:1180px;margin:0 auto;padding:22px 24px;display:flex;align-items:center;gap:12px;position:relative;z-index:2}
 .lnav .right{margin-left:auto;display:flex;align-items:center;gap:8px}
-.lnav .right .link{color:var(--ink);font-weight:600;font-size:13.5px}
+.lnav .right #login{display:inline-flex;align-items:center;gap:12px;margin-right:6px}
+.lnav .right .link{color:var(--ink);font-weight:600;font-size:13.5px;line-height:1;padding:6px 2px}
+.lnav .right #logout{color:var(--mut);font-weight:500;border-left:1px solid var(--line2);padding:4px 0 4px 12px;border-radius:0}
 .logo{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:19px;letter-spacing:-.02em;color:var(--ink);text-decoration:none}.logo:hover{text-decoration:none}
 .logo svg{color:var(--blue)}
 .lhero{position:relative;z-index:2;max-width:760px;margin:0 auto;padding:40px 24px 0;text-align:center}
@@ -69,6 +71,7 @@ body.landing{background:var(--paper)}
 .mini .row{margin-top:8px}
 .acct{display:flex;align-items:center;gap:10px}
 .avatar{width:32px;height:32px;border-radius:50%;background:#7b8494;color:#fff;display:grid;place-items:center;font-weight:600;font-size:13px;flex:none}
+img.avatar{object-fit:cover;background:var(--bg)}.who-mini{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--ink)}.who-mini .avatar{width:26px;height:26px;font-size:12px}
 .acct b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.acct .via{font-size:11.5px;color:var(--mut);display:block}
 .mini hr{border:0;border-top:1px solid var(--line);margin:10px 0}
 .wline{display:flex;align-items:center;gap:6px;font-size:12.5px}.wline b{font-weight:600}.wline .link{margin-left:auto;font-size:12px;padding:0}
@@ -187,7 +190,7 @@ button.nego{display:flex;align-items:center;justify-content:center;gap:8px;width
   .work-head{padding:12px 16px}.work-body{padding:20px 16px 40px}
   .title{font-size:22px}
 }
-@media(max-width:560px){.lnav{padding:16px}.lnav .right .link{display:none}.lhero{padding-top:20px}}
+@media(max-width:560px){.lnav{padding:16px}.who-mini span{display:none}.lhero{padding-top:20px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style></head><body>
 <script>
@@ -232,35 +235,31 @@ const I = {
   sparkle: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
 };
 const LOGO = `<a class="logo" href="/">${svg(I.chip, 22)}EthPC</a>`;
-let LOGIN = null;
 const clean = (t) => String(t ?? "").replace(/\s*\([^)]*(demo|simulat)[^)]*\)/gi, "").split(/(?<=[.!?])\s+/).filter((x) => !/demo|simulat/i.test(x)).join(" ").trim();
 const ref = (id) => String(id ?? "").replace(/\bDEMO-/g, "");
 const short = (id) => { const s = String(id ?? ""); return s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s; };
+let AUTH = null;
+const signIn = (next) => { location.href = `/auth/google?next=${encodeURIComponent(next)}`; };
+async function logout() { await json("/auth/logout", {}).catch(() => {}); S.walletOk = false; save(); location.href = "/"; }
+const avatar = (u) => u?.picture ? `<img class="avatar" src="${esc(u.picture)}" alt="" referrerpolicy="no-referrer">` : `<div class="avatar">${esc((u?.name ?? "?").trim().charAt(0).toUpperCase() || "?")}</div>`;
 async function renderLogin() {
-  const was = LOGIN?.loggedIn; LOGIN = await json("/api/login").catch(() => null); const box = $("login"); if (!box || !LOGIN) return;
-  if (location.pathname === "/build" && LOGIN.loggedIn && !was && $("gLogin")) next();
+  const box = $("login"); if (!box) return;
+  AUTH = (await json("/api/auth/me").catch(() => null)) ?? AUTH;
   if (document.body.dataset.page !== "landing") { STATUS = (await json("/api/status").catch(() => null)) ?? STATUS; return renderAccount(); }
-  if (LOGIN.loggedIn) { box.innerHTML = `<span class="pill ok">✓ ${LOGIN.mode === "live" ? "World ID verified" : "Logged in with World ID"}</span><button class="link" id="logout">Log out</button>`; $("logout").onclick = async () => { await json("/api/logout", {}); renderLogin(); }; return; }
-  if (LOGIN.world) { box.innerHTML = `<span class="sm">Approve in World App: <a href="${esc(LOGIN.world.verificationUriComplete)}" target="_blank" rel="noopener" data-world>open</a>, code <b class="mono">${esc(LOGIN.world.userCode)}</b></span>`; later(renderLogin, 2000); return; }
-  closeWorld();
-  box.innerHTML = `${LOGIN.error ? `<span class="sm v-unlikely">${esc(clean(LOGIN.error))}</span>` : ""}<button class="link" id="loginBtn">Log in</button>`;
-  $("loginBtn").onclick = loginClick;
+  if (AUTH?.signedIn) { box.innerHTML = `<span class="who-mini">${avatar(AUTH.user)}<span>${esc(AUTH.user.name)}</span></span><button class="link" id="logout">Log out</button>`; $("logout").onclick = logout; return; }
+  box.innerHTML = `<button class="link" id="loginBtn">Log in</button>`;
+  $("loginBtn").onclick = () => signIn("/");
 }
-async function loginClick() { const b = $("loginBtn"); if (b) b.disabled = true; try { if (worldLive()) popWorld(); const l = await json("/api/login/world", {}); if (l.world?.verificationUriComplete) popWorld(l.world.verificationUriComplete); else closeWorld(); } catch (e) { closeWorld(); alert(e.message); } renderLogin(); }
 function renderAccount() {
   const box = $("login"); if (!box) return;
-  const who = LOGIN?.loggedIn ? (LOGIN.who ?? (LOGIN.mode === "live" ? "World ID verified" : "Verified user")) : "Not logged in";
-  const via = LOGIN?.loggedIn ? "via World ID" : LOGIN?.world ? `Approve in World App, code <b class="mono">${esc(LOGIN.world.userCode)}</b>` : "Log in to let the agent run";
+  const u = AUTH?.user;
   const wal = walletOk(), acct = isHP() ? hpAcct() : (STATUS?.userId ?? WAL.userId), bal = STATUS?.wallet?.balance, hbar = asset.symbol === "HBAR" ? null : STATUS?.wallet?.hbarForFees;
-  box.innerHTML = `<div class="acct"><div class="avatar">${LOGIN?.loggedIn ? "W" : "?"}</div><div style="min-width:0;flex:1"><b>${esc(who)}</b><span class="via">${via}</span></div></div>
-    ${LOGIN?.loggedIn || LOGIN?.world ? "" : `<div class="row"><button class="small" id="loginBtn">Log in with World ID</button></div>`}
+  box.innerHTML = `<div class="acct">${avatar(u)}<div style="min-width:0;flex:1"><b>${esc(u?.name ?? "Not signed in")}</b><span class="via">${u?.email ? esc(u.email) : "via Google"}</span></div></div>
     <hr><div class="wline">${svg(I.wallet, 15)}${wal && acct ? `<b class="mono">${esc(short(acct))}</b><button class="link" id="wDisc">Disconnect</button>` : `<span class="mut">No wallet connected</span>`}</div>
     ${wal && bal != null ? `<div class="bal"><span>${units(bal)}</span>${hbar != null ? `<span>${(Number(hbar) / 1e8).toFixed(2)} HBAR</span>` : ""}</div><div class="mut" style="font-size:11.5px;margin-top:4px">Testnet. The agent's data fees are paid in ${esc(asset.symbol)}.</div>` : ""}
-    ${LOGIN?.loggedIn ? `<div class="row" style="margin-top:6px"><button class="link" id="logout" style="padding:0;font-size:12px">Log out</button></div>` : ""}`;
-  if ($("loginBtn")) $("loginBtn").onclick = loginClick;
-  if ($("logout")) $("logout").onclick = async () => { await json("/api/logout", {}); await renderLogin(); if (location.pathname === "/build") next(); };
+    <div class="row" style="margin-top:6px"><button class="link" id="logout" style="padding:0;font-size:12px">Log out</button></div>`;
+  $("logout").onclick = logout;
   if ($("wDisc")) $("wDisc").onclick = async () => { if (isHP() && hpAcct()) await window.HashPack.disconnect()?.catch?.(() => {}); S.walletOk = false; save(); renderAccount(); if (location.pathname === "/build") next(); };
-  if (LOGIN?.world && !LOGIN.loggedIn && location.pathname !== "/build") later(renderLogin, 2000);
 }
 async function resetDemo() {
   if (!confirm("Reset everything? This revokes the allowance, logs out of World ID, and clears searches, orders and reviews records.")) return;
@@ -305,16 +304,19 @@ const SCENE = `<svg class="scene" viewBox="0 0 1440 360" preserveAspectRatio="xM
   <g transform="translate(40 230)">${[[30, 60, -20], [50, 40, 10], [12, 50, -40]].map(([x, y, r]) => `<ellipse cx="${x}" cy="${y}" rx="10" ry="30" fill="#7d966a" transform="rotate(${r} ${x} ${y + 25})"/>`).join("")}</g>
 </svg>`;
 function landing() {
+  const loginError = new URLSearchParams(location.search).get("login_error");
+  if (loginError) history.replaceState(null, "", "/");
   document.body.className = "landing"; document.body.dataset.page = "landing";
   document.body.innerHTML = `<nav class="lnav">${LOGO}<div class="right"><span id="login"></span><button id="getStarted">Get started</button></div></nav>
   <main class="lhero">
     <div class="eyebrow">Autonomous PC shopping, under your control</div>
     <h1>The PC agent that shops for you, and never oversteps.</h1>
     <p class="sub">Tell EthPC what you play and what you can spend. It compares complete builds and pays for its data as it goes, inside the allowance you approve.</p>
+    ${loginError ? `<div class="fail" role="alert" style="max-width:600px;margin:0 auto 14px;text-align:left">${esc(loginError)}</div>` : ""}
     <div class="promptbox"><textarea id="prompt" aria-label="Describe the PC you want" placeholder="${esc(EXAMPLES[0])}">${esc(S.text)}</textarea>
       <div class="row"><span class="hint">Only your budget is required. Anything else gets a stated default.</span><button id="build">Build my PC</button></div></div>
     <div class="examples" aria-label="Example requests">${EX_LABEL.map((e, i) => `<button data-ex="${i}">${svg(I.sparkle, 13)}${esc(e)}</button>`).join("")}</div>
-    <p class="fine">The recommendation fee is paid with x402 on Hedera testnet.</p>
+    <p class="fine">The recommendation fee is paid with x402 on Hedera, in USDC.</p>
   </main>${SCENE}<div class="lfoot"></div>`;
   renderLogin();
   const keep = () => { S.text = $("prompt").value; save(); };
@@ -322,7 +324,7 @@ function landing() {
   $("prompt").onkeydown = (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) $("build").click(); };
   $("getStarted").onclick = () => { $("prompt").focus(); $("prompt").scrollIntoView({ behavior: "smooth", block: "center" }); };
   document.querySelectorAll("[data-ex]").forEach((b) => b.onclick = () => { $("prompt").value = EXAMPLES[Number(b.dataset.ex)]; keep(); $("prompt").focus(); });
-  $("build").onclick = () => { keep(); if (!S.text.trim()) { $("prompt").focus(); return; } if (S.search?.key !== reqKey()) { S.answers = {}; } S.newJourney = true; S.walletOk = false; save(); location.href = "/build"; };
+  $("build").onclick = () => { keep(); if (!S.text.trim()) { $("prompt").focus(); return; } if (S.search?.key !== reqKey()) { S.answers = {}; } S.newJourney = true; S.walletOk = false; save(); if (AUTH?.signedIn) location.href = "/build"; else signIn("/build"); };
 }
 function chips(q) {
   const t = q.target;
@@ -355,7 +357,6 @@ async function build() {
   $("assumed").textContent = shortAssumptions(REQ.requirements.assumptions);
   if (isHP()) await loadHP().catch(() => {});
   if (S.newJourney) { if (isHP() && hpAcct()) await window.HashPack.disconnect()?.catch?.(() => {}); S.newJourney = false; S.walletOk = false; save(); }
-  LOGIN = await json("/api/login").catch(() => null);
   await refreshAllowance();
   if (S.order) renderOrderBanner();
   next();
@@ -367,7 +368,7 @@ async function next() {
   renderAllowance(); renderAccount();
   if (!FEE?.api) return showAuth(`<div class="fail">The recommendation service isn't available right now, so the agent can't search. Try again in a moment.</div>`);
   if (S.search?.key === reqKey()) return follow(S.search.rid);
-  if (!LOGIN?.loggedIn || !walletOk()) return showAuth();
+  if (!walletOk()) return showAuth();
   const l = FEE.limit;
   if (!l) return showAuth();
   if (BigInt(l.remaining) < BigInt(FEE.api.fee)) return showAuth(`<div class="q"><p>Your allowance has ${units(l.remaining)} left, less than the ${units(FEE.api.fee)} fee. Approve a new allowance to continue.</p></div>`);
@@ -391,32 +392,21 @@ function renderAllowance() {
 const walletOk = () => !!S.walletOk && (!isHP() || hpAcct() === WAL.userId);
 function showAuth(note = "") {
   const p = $("authPanel"); p.hidden = false; $("agentPanel").hidden = !S.search; agentState("Waiting for you", "ask");
-  const a = FEE.api, logged = !!LOGIN?.loggedIn, wal = walletOk(), l = FEE.limit, enough = !!(l && a && BigInt(l.remaining) >= BigInt(a.fee));
+  const a = FEE.api, wal = walletOk(), l = FEE.limit, enough = !!(l && a && BigInt(l.remaining) >= BigInt(a.fee));
   const step = (n, state, title, body) => `<li class="${state}"><span class="ic">${state === "done" ? "✓" : n}</span><div style="min-width:0"><b>${title}</b><div class="body">${body}</div></div></li>`;
-  const loginBody = logged ? (LOGIN.mode === "live" ? "World ID verified: a verified human is behind this agent." : "Logged in with World ID.")
-    : LOGIN?.world ? `Approve in World App: <a href="${esc(LOGIN.world.verificationUriComplete)}" target="_blank" rel="noopener" data-world>open World</a>, code <b class="mono">${esc(LOGIN.world.userCode)}</b>. Waiting…`
-    : `${LOGIN?.error ? `<span class="v-unlikely">${esc(clean(LOGIN.error))}</span><br>` : ""}Proves a verified human is behind the agent.<div class="row"><button id="gLogin">Log in with World ID</button></div>`;
   const walletBody = wal ? (isHP() ? `HashPack connected: <span class="mono">${esc(hpAcct())}</span>.` : `Wallet <span class="mono">${esc(STATUS?.userId ?? "")}</span> connected.`)
-    : logged ? `${isHP() ? "Pair HashPack. You'll approve the allowance there." : "Connect the wallet for this run."}<div class="row"><button id="gWallet">Connect wallet</button></div>` : "After you log in.";
+    : `${isHP() ? "Pair HashPack. You'll approve the allowance there." : "Connect the wallet for this run."}<div class="row"><button id="gWallet">Connect wallet</button></div>`;
   const allowBody = enough ? `${units(l.remaining)} left of ${units(l.maxTotal)}. The agent can start.`
-    : logged && wal ? `The agent pays ${a ? `${units(a.fee)} per recommendation request` : "a small fee per request"} with x402, on its own, until this allowance runs out. It never pays for the PC: your ${usd(REQ.requirements.budgetUnits)} PC budget only picks the options.
+    : wal ? `The agent pays ${a ? `${units(a.fee)} per recommendation request` : "a small fee per request"} with x402, on its own, until this allowance runs out. It never pays for the PC: your ${usd(REQ.requirements.budgetUnits)} PC budget only picks the options.
       <div class="row"><label class="sm" for="allowIn">Allowance (${esc(asset.symbol)})</label><input type="number" id="allowIn" min="0.01" step="0.01" value="0.20"><button id="approve">Approve in wallet</button></div><div id="authStatus" class="sm"></div>`
     : "Covers the agent's paid recommendation requests.";
-  p.innerHTML = `<div class="sec-h"><span>Before the agent starts</span><span>${[logged, wal, enough].filter(Boolean).length} of 3 done</span></div>${note ? `<div class="sec-b" style="padding-bottom:0">${note}</div>` : ""}<ol class="setup">
-    ${step(1, logged ? "done" : "now", "Log in with World ID", loginBody)}
-    ${step(2, wal ? "done" : logged ? "now" : "todo", "Connect your wallet", walletBody)}
-    ${step(3, enough ? "done" : logged && wal ? "now" : "todo", "Approve the API spending allowance", allowBody)}</ol><p class="err" id="authErr" style="margin:0 16px 14px"></p>`;
-  if ($("gLogin")) $("gLogin").onclick = async () => {
-    $("gLogin").disabled = true; $("authErr").textContent = "";
-    try { if (worldLive()) popWorld(); LOGIN = await json("/api/login/world", {}); if (LOGIN.world?.verificationUriComplete) popWorld(LOGIN.world.verificationUriComplete); else closeWorld(); }
-    catch (e) { closeWorld(); $("authErr").textContent = e.message; }
-    renderLogin(); next();
-  };
-  if (LOGIN?.world && !logged) later(async () => { LOGIN = await json("/api/login").catch(() => LOGIN); if (LOGIN?.loggedIn || LOGIN?.error) { closeWorld(); renderLogin(); } next(); }, 2000);
+  p.innerHTML = `<div class="sec-h"><span>Before the agent starts</span><span>${[wal, enough].filter(Boolean).length} of 2 done</span></div>${note ? `<div class="sec-b" style="padding-bottom:0">${note}</div>` : ""}<ol class="setup">
+    ${step(1, wal ? "done" : "now", "Connect your wallet", walletBody)}
+    ${step(2, enough ? "done" : wal ? "now" : "todo", "Approve the API spending allowance", allowBody)}</ol><p class="err" id="authErr" style="margin:0 16px 14px"></p>`;
   if ($("gWallet")) $("gWallet").onclick = async () => {
     $("gWallet").disabled = true; $("authErr").textContent = "";
     try { if (isHP()) await hpConnect(); S.walletOk = true; save(); } catch (e) { $("authErr").textContent = e.message || String(e); }
-    next();
+    renderAccount(); next();
   };
   if ($("approve")) { $("approve").onclick = () => approveAllowance(); if (S.pending) approveAllowance(S.pending); }
 }
@@ -428,7 +418,7 @@ async function approveAllowance(resume) {
     for (let i = 0; ; i++) {
       const ap = (await json("/api/approvals")).find((x) => x.id === id);
       if (!ap) { S.pending = null; save(); if (resume) { $("approve").disabled = false; return; } throw new Error("the approval expired; try again"); }
-      if (!worldLive() || ap.verified) break;
+      if (!worldLive() || ap.verified || AUTH?.mode === "live") break;
       if (!ap.world || ap.world.error) {
         if (ap.world?.error) st(`<span class="v-unlikely">${esc(ap.world.error)}</span>`);
         if (i > 0 && ap.world?.error) throw new Error("World ID didn't verify");
@@ -494,7 +484,7 @@ async function follow(rid) {
 let stepKey = "";
 async function stepup(rid) {
   const ap = (await json("/api/approvals").catch(() => [])).find((a) => a.kind === "stepup" && a.ref === rid); if (!ap) return;
-  const needWorld = worldLive() && !ap.verified, key = `${ap.id}|${needWorld}|${ap.world?.userCode ?? ""}|${ap.world?.error ?? ""}`; if (key === stepKey) return; stepKey = key;
+  const needWorld = worldLive() && !ap.verified && AUTH?.mode !== "live", key = `${ap.id}|${needWorld}|${ap.world?.userCode ?? ""}|${ap.world?.error ?? ""}`; if (key === stepKey) return; stepKey = key;
   $("agentMsg").innerHTML = `<div class="q"><p><b>The Guard paused this fee and needs your signature.</b> ${esc(ap.purchase?.reason ?? "")}</p>${needWorld ? (ap.world && !ap.world.error ? `<p class="sm">Approve in World App, code <b class="mono">${esc(ap.world.userCode)}</b>.</p>` : `<div class="row"><button id="suWorld">Verify with World ID</button></div>`) : `<div class="row"><button id="suSign">Sign ${units(ap.amount)}</button><button class="ghost" id="suDeny">Deny</button></div>`}</div>`;
   if ($("suWorld")) $("suWorld").onclick = async () => { popWorld(); const w = await json(`/api/approvals/${ap.id}/world`, {}).catch(() => ({})); if (w.world?.verificationUriComplete) popWorld(w.world.verificationUriComplete); stepKey = ""; };
   if ($("suSign")) $("suSign").onclick = async () => { $("suSign").disabled = true; try { closeWorld(); await json(`/api/approvals/${ap.id}/approve`, { walletTx: isHP() ? await hpSign({ approvalId: ap.id }) : undefined }); } catch (e) { $("agentMsg").insertAdjacentHTML("beforeend", `<p class="err">${esc(e.message || e)}</p>`); $("suSign").disabled = false; } };
@@ -626,21 +616,33 @@ async function orderPage() {
     $("auditBody").innerHTML = `<p class="mut" style="margin:0 0 8px">Every Guard decision is also written to the public HCS topic. No card, name or address details are recorded.</p><div style="overflow-x:auto"><table><tr><th>Time</th><th>Event</th><th>Detail</th><th>HCS</th></tr>${all.map((v) => `<tr><td class="mono">${new Date(v.at).toLocaleTimeString()}</td><td>${esc(humanize(v.event))}</td><td>${esc(ref(clean(v.detail)))}</td><td class="mono">${esc(clean(v.reference).slice(0, 22))}</td></tr>`).join("") || `<tr><td colspan="4" class="mut">No entries.</td></tr>`}</table></div>`;
   };
 }
-async function reviewBox(o) {
+async function startReview(o, v) {
+  $("revErr").textContent = "";
+  if (v.verified) return reviewBox(o, true);
+  try { if (worldLive()) popWorld(); const w = await json(`/api/pc/orders/${o.orderId}/review/world`, {}); if (w.world?.verificationUriComplete) popWorld(w.world.verificationUriComplete); else closeWorld(); }
+  catch (e) { closeWorld(); $("revErr").textContent = e.message; return; }
+  reviewBox(o, true);
+}
+async function reviewBox(o, writing = false) {
   if (!$("after")) return;
   let v; try { v = await json(`/api/pc/orders/${o.orderId}/review`); } catch (e) { $("revErr").textContent = e.message; return; }
-  const intro = `<p class="sm mut" style="margin:0 0 8px">World ID proves a verified human wrote it, not that it's true. Public on Arkiv for 90 days, one review per order.</p>`;
   if (v.review) { $("after").innerHTML = `<div class="box ok">Your ${v.review.rating}/5 review of ${esc(o.shopName)} is published with the ✓ World ID verified badge, until ${new Date(v.review.expiresAt).toLocaleDateString()}.</div>`; return; }
+  if (!writing && !v.world && !v.verified) {
+    $("after").innerHTML = `<p class="sm mut" style="margin:0 0 10px">How did ${esc(o.shopName)} do? You'll verify with World ID first, so every review comes from a real person.</p><button id="writeRev">Write a review</button>`;
+    $("writeRev").onclick = () => { $("writeRev").disabled = true; startReview(o, v); };
+    return;
+  }
   if (!v.verified) {
-    $("after").innerHTML = `${intro}${v.world ? `<p class="sm">Approve in World App: <a href="${esc(v.world.verificationUriComplete)}" target="_blank" rel="noopener" data-world>open</a>, code <b class="mono">${esc(v.world.userCode)}</b>…</p>` : ""}${v.error ? `<p class="err">${esc(v.error)}</p>` : ""}<div class="row"><button id="revWorld">${v.world ? "Start again" : "Verify with World ID to review"}</button></div>`;
-    $("revWorld").onclick = async () => { try { if (worldLive()) popWorld(); const w = await json(`/api/pc/orders/${o.orderId}/review/world`, {}); if (w.world?.verificationUriComplete) popWorld(w.world.verificationUriComplete); else closeWorld(); reviewBox(o); } catch (e) { closeWorld(); $("revErr").textContent = e.message; } };
-    if (v.world) setTimeout(() => $("after") && reviewBox(o), 2500);
+    $("after").innerHTML = `${v.world ? `<p class="sm" style="margin:0 0 8px">Verify with World ID: approve in World App (<a href="${esc(v.world.verificationUriComplete)}" target="_blank" rel="noopener" data-world>open</a>), code <b class="mono">${esc(v.world.userCode)}</b>. Waiting…</p>` : ""}${v.error ? `<p class="err">${esc(clean(v.error))}</p>` : ""}<div class="row" style="margin-top:0"><button class="${v.world ? "ghost" : ""}" id="revWorld">${v.world ? "Start again" : "Verify with World ID"}</button></div>`;
+    $("revWorld").onclick = () => { $("revWorld").disabled = true; startReview(o, { verified: false }); };
+    if (v.world) setTimeout(() => $("after") && reviewBox(o, true), 2500);
     return;
   }
   closeWorld();
-  $("after").innerHTML = `${intro}<div class="row"><select id="stars" aria-label="Rating">${[5, 4, 3, 2, 1].map((n) => `<option value="${n}">${n} star${n > 1 ? "s" : ""}</option>`).join("")}</select></div><div class="row"><textarea id="revText" maxlength="280" aria-label="Review text" placeholder="How did ${esc(o.shopName)} do? Public: no names, emails, links or phone numbers."></textarea></div><div class="row"><button id="revBtn">Publish review</button></div>`;
+  $("after").innerHTML = `<p class="sm" style="margin:0 0 4px;color:var(--green)">✓ World ID verified. Public on Arkiv for 90 days, one review per order.</p><div class="row"><select id="stars" aria-label="Rating">${[5, 4, 3, 2, 1].map((n) => `<option value="${n}">${n} star${n > 1 ? "s" : ""}</option>`).join("")}</select></div><div class="row"><textarea id="revText" maxlength="280" aria-label="Review text" placeholder="How did ${esc(o.shopName)} do? Public: no names, emails, links or phone numbers."></textarea></div><div class="row"><button id="revBtn">Publish review</button></div>`;
   $("revBtn").onclick = async () => { $("revBtn").disabled = true; $("revErr").textContent = ""; try { await json(`/api/pc/orders/${o.orderId}/review`, { rating: Number($("stars").value), text: $("revText").value }); reviewBox(o); } catch (e) { $("revErr").textContent = e.message; $("revBtn").disabled = false; } };
 }
+
 const EVENT = {
   paid: ["Agent payment", "ok"], requested: ["Agent requested data", ""], blocked: ["Blocked by the Guard", "no"], failed: ["Payment failed", "no"], denied: ["Payment denied", "no"], expired: ["Approval expired", "mute"], unknown: ["Payment outcome unknown", "ask"],
   awaiting_approval: ["Waiting for your signature", "ask"], approved: ["You approved a payment", "ok"], payment_retry: ["Payment retried", "ask"],
@@ -680,9 +682,10 @@ async function auditPage() {
     <p class="count-note">No card, name or address details are ever recorded.</p>`;
 }
 (async () => {
-  try { [WAL, STATUS] = await Promise.all([json("/api/wallet"), json("/api/status")]); asset = STATUS.asset ?? asset; }
+  try { [WAL, STATUS, AUTH] = await Promise.all([json("/api/wallet"), json("/api/status"), json("/api/auth/me")]); asset = STATUS.asset ?? asset; }
   catch (e) { document.body.innerHTML = `<main class="lhero"><h2 class="title">The servers aren't responding</h2><div class="fail">Run <span class="mono">npm start</span>, then reload this page. (${esc(e.message)})</div></main>`; return; }
   const P = location.pathname;
+  if (["/build", "/order", "/orders", "/activity", "/audit"].includes(P) && !AUTH?.signedIn) return signIn(P + location.search);
   if (P === "/build") build(); else if (P === "/order") orderPage(); else if (P === "/orders") ordersPage(); else if (P === "/activity") activityPage(); else if (P === "/audit") auditPage(); else landing();
 })();
 </script></body></html>
