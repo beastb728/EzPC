@@ -12,7 +12,7 @@ Tell EthPC what you play and what you can spend. An AI agent finds shops on **Ar
 1. **Describe the PC.** "Find me a gaming PC with a 4K monitor, within 4,000 USDC." Only the budget is required; everything else gets a stated default.
 2. **Sign in with Google.** Your prompt is kept, and you continue where you left off.
 3. **Connect HashPack and approve one allowance**, for example 0.20 USDC. That's all the agent may ever spend on data. Nothing leaves your wallet yet.
-4. **The agent works on its own:** it finds the recommendation service on Arkiv, pays its 0.05 USDC fee with x402, reads shop listings and reviews from Arkiv for free, and shows three complete PCs with compatibility checks.
+4. **The agent works on its own:** it finds the recommendation service on Arkiv, pays its 0.05 USDC fee with x402, reads shop listings and reviews from Arkiv for free, and shows three complete PCs with compatibility checks. It then **checks its own payment on Hedera with the Hedera Agent Kit**: the transfer, the allowance pull and the public audit entry.
 5. **Pick one and let your agent negotiate.** You watch your agent and the shop's agent haggle live over A2A; a deal pops up with what you saved.
 6. **Check out** with a mock card (the PC itself isn't paid in crypto), mark it delivered, and **write a review** after a World ID check.
 
@@ -62,7 +62,8 @@ Duplicate request → active allowance → listing found on Arkiv, published by 
 | **HCS** tamper-evident audit log of agent spending | `src/ledger.mjs`, read back by `src/verify.mjs` |
 | **Scheduled Transactions** for human approval above a set amount | `src/ledger.mjs` (`ScheduleCreateTransaction`), signed in HashPack |
 | **Mirror Node REST API** to confirm allowances, balances and settlement | `src/ledger.mjs`, `src/verify.mjs` |
-| **Hedera Agent Kit** read-only query tools: the agent reads its own spending back from HCS | `src/spend-report.mjs` |
+| **Hedera Agent Kit** (`@hashgraph/hedera-agent-kit`, read-only query tools, no key): after paying, the agent verifies its own payment on Hedera: the x402 transfer and the allowance pull (`get_transaction_record_query_tool`) and the Guard's HCS audit entry naming both (`get_topic_messages_query_tool`). The build page shows "Verified on Hedera by the agent" with HashScan links | `src/onchain-proof.mjs`, `GET /api/pc/proof/:id`; spending report in `src/spend-report.mjs` |
+| **Hedera Network MCP** (hosted, `agentic-testnet-mcp.hedera.com`) alongside EthPC's own MCP server, so Claude can shop through the Guard and manage the wallet in one chat | see [Use it from Claude](#use-it-from-claude-mcp) |
 | **Spending controls**: allowance budget, per-fee cap, approved-seller allowlist, approval above an amount | `src/guard.mjs` |
 | **A2A negotiation** between the buyer agent and each shop's AI agent | `src/a2a.mjs`, `src/seller-brain.mjs`, `src/buyer-brain.mjs` |
 | **No Solidity**: everything uses the JS SDK (`@hiero-ledger/sdk`) and native services | |
@@ -109,20 +110,34 @@ npm start                 # then open http://localhost:4000
 - **AI model:** `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, used for reading requests, the intent check and the negotiating agents.
 
 ```bash
-npm test      # 116 tests, simulated mode; stop a running copy first (same ports)
+npm test      # 121 tests, simulated mode; stop a running copy first (same ports)
 npm run verify    # live: checks the Guard's payments against the HCS log from public data only
 ```
 
 ## Use it from Claude (MCP)
 
-`src/mcp.mjs` is an MCP server that lets Claude act as the buyer agent through the same Guard. It holds no keys and never shows the agent token to the model.
+`src/mcp.mjs` is an MCP server that lets Claude act as the buyer agent through the same Guard. It holds no keys and never shows the agent token to the model. Add it together with **Hedera's hosted MCP server**, so one chat can shop through the Guard and manage the wallet:
 
 ```bash
+npm start
 claude mcp add ethpc -- node "<path-to-repo>/src/mcp.mjs"
-claude mcp add --transport http hedera-testnet https://agentic-testnet-mcp.hedera.com/mcp
+claude mcp add --transport http hedera-testnet https://agentic-testnet-mcp.hedera.com/mcp   # then /mcp → Authenticate with HashPack
 ```
 
-The second line adds **Hedera's hosted MCP server**, so the same chat can check balances or revoke the allowance from your HashPack wallet. Tools on the EthPC server: `request_intent`, `get_intent`, `find_sellers`, `buy`, `make_offer`, `negotiate_price`, `check_purchase`, and `spending_report`, which uses the Hedera Agent Kit.
+**EthPC tools (PC flow)**
+
+| Tool | What it does |
+|---|---|
+| `pc_requirements` | Reads a request in plain words; shows what was understood and the stated defaults. Free |
+| `pc_allowance_status` | The allowance left and the fee per recommendation |
+| `pc_request_allowance` | Asks for an allowance; the user approves it in the app with HashPack (Claude can't) |
+| `pc_find_builds` | Pays the fee with x402 from the allowance through the Guard and returns three PCs plus the payment's transaction IDs. The same request is never paid twice |
+| `pc_negotiate` | Haggles with the chosen shop's AI agent over A2A; returns every message and the deal |
+| `pc_verify_payment` | The Hedera Agent Kit check: transfer, allowance pull and HCS audit entry |
+
+The earlier general tools (`request_intent`, `get_intent`, `find_sellers`, `buy`, `make_offer`, `negotiate_price`, `check_purchase`, `spending_report`) are still there.
+
+**Example prompt:** "Find me a 1440p gaming PC for GTA 6 under 1,500 USDC. Use the ethpc tools: check my allowance, find builds, verify the payment on Hedera, and negotiate the cheapest option. Then use hedera-testnet to show my USDC balance."
 
 ## What's real and what isn't
 
@@ -140,4 +155,4 @@ The second line adds **Hedera's hosted MCP server**, so the same chat can check 
 - An agreed shop price is valid for 5 minutes.
 
 ## Project layout
-`src/` services and logic · `public/index.html` the web app · `wallet/` HashPack connector bundle · `test/` 116 tests (`node --test`) · `scripts-*.mjs` setup · `experiments/` live checks.
+`src/` services and logic · `public/index.html` the web app · `wallet/` HashPack connector bundle · `test/` 121 tests (`node --test`) · `scripts-*.mjs` setup · `experiments/` live checks.
