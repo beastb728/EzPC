@@ -33,7 +33,7 @@ before(async () => {
     json(404, {});
   }).listen(4555);
   const e = { ...process.env, AGENT_TOKEN: AGENT, DASH_TOKEN: DASH, GUARD_DB: join(dir, "g.db"), WORLD_ISSUER: ISS, WORLD_CLIENT_ID: CLIENT, WORLD_CLIENT_SECRET: "worldidp_client_secret_test", REVIEWS_FILE: join(dir, "reviews.json") };
-  for (const k of Object.keys(e)) if (/_PRIVATE_KEY$|_ACCOUNT_ID$|^HCS_TOPIC_ID$|^LLM_BASE_URL$|^DATA_GOV_IN_API_KEY$|^PROTOTYPE_MODES$|^APPROVED_OWNERS$|^PAY_ASSET$|^SHOP_/.test(k)) delete e[k];
+  for (const k of Object.keys(e)) if (/_PRIVATE_KEY$|_ACCOUNT_ID$|^HCS_TOPIC_ID$|^LLM_BASE_URL$|^DATA_GOV_IN_API_KEY$|^PROTOTYPE_MODES$|^APPROVED_OWNERS$|^PAY_ASSET$|^SHOP_|^GOOGLE_|^SESSION_SECRET$/.test(k)) delete e[k];
   kid = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", "start.mjs"], { env: e, stdio: "ignore" });
   for (let i = 0; i < 100; i++) { try { await fetch(W + "/"); return; } catch { await sleep(200); } } throw new Error("stack did not start");
 });
@@ -131,4 +131,15 @@ test("W12 log in with World ID: the owner's login starts the session that covers
   const i = await newIntent(); assert.notEqual((await web(`/api/approvals/${i.approvalId}/approve`, {})).status, 403, "covered by the login");
   await web("/api/logout", {});
   const after = await newIntent(); assert.equal((await web(`/api/approvals/${after.approvalId}/approve`, {})).status, 403, "logged out: World needed again");
+});
+test("W13 a Google account the dashboard verified authorises an allowance without a World ID check", async () => {
+  const i = await newIntent();
+  const d = await call(`/approvals/${i.approvalId}/decision`, { decision: "approve", account: { via: "google", sub: "g-123", email: "buyer@example.com" } }, DASH);
+  assert.equal(d.status, 200); assert.equal(d.body.state, "active"); assert.match(d.body.approvedBy, /Google account buyer@example.com/);
+});
+test("W14 only the dashboard can vouch for an account; without one, World ID is still required", async () => {
+  const i = await newIntent();
+  assert.equal((await call(`/approvals/${i.approvalId}/decision`, { decision: "approve", account: { via: "google", sub: "x" } }, AGENT)).status, 401);
+  assert.equal((await call(`/approvals/${i.approvalId}/decision`, { decision: "approve" }, DASH)).status, 403);
+  assert.equal((await call(`/approvals/${i.approvalId}/decision`, { decision: "approve", account: { via: "email", sub: "x" } }, DASH)).status, 403);
 });

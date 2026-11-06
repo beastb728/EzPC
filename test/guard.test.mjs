@@ -25,7 +25,7 @@ async function activate(o = {}) {
   const d = await web(`/api/approvals/${r.approvalId}/approve`, {}); assert.equal(d.body.state, "active"); return d.body;
 }
 const pendingStepup = async () => { await activate(); const p = await buy("deepreport"); assert.equal(p.status, "awaiting_approval"); assert.match(p.scheduleId, /^SIM-SCHEDULE-/); return p; };
-function env() { const e = { ...process.env, AGENT_TOKEN: AGENT, DASH_TOKEN: DASH, GUARD_DB: join(dir, "g.db"), APPROVAL_TTL_MS: "1500" }; for (const k of Object.keys(e)) if (/_PRIVATE_KEY$|_ACCOUNT_ID$|^HCS_TOPIC_ID$|^WORLD_CLIENT_ID$|^LLM_BASE_URL$|^APPROVED_OWNERS$|^DATA_GOV_IN_API_KEY$|^PROTOTYPE_MODES$|^PAY_ASSET$|^SHOP_/.test(k)) delete e[k]; e.PAY_ASSET = TEST_ASSET; e.REVIEWS_FILE = join(dir, "reviews.json"); return e; }
+function env() { const e = { ...process.env, AGENT_TOKEN: AGENT, DASH_TOKEN: DASH, GUARD_DB: join(dir, "g.db"), APPROVAL_TTL_MS: "1500" }; for (const k of Object.keys(e)) if (/_PRIVATE_KEY$|_ACCOUNT_ID$|^HCS_TOPIC_ID$|^WORLD_CLIENT_ID$|^LLM_BASE_URL$|^APPROVED_OWNERS$|^DATA_GOV_IN_API_KEY$|^PROTOTYPE_MODES$|^PAY_ASSET$|^SHOP_|^GOOGLE_|^SESSION_SECRET$/.test(k)) delete e[k]; e.PAY_ASSET = TEST_ASSET; e.REVIEWS_FILE = join(dir, "reviews.json"); return e; }
 before(async () => { kid = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", "start.mjs"], { env: env(), stdio: "ignore" }); for (let i = 0; i < 100; i++) { try { await fetch(W + "/"); return; } catch { await sleep(200); } } throw new Error("stack did not start"); });
 after(() => { kid.kill(); rmSync(dir, { recursive: true, force: true }); });
 beforeEach(() => call("/reset", {}, DASH));
@@ -339,4 +339,17 @@ test("S28 reset cancels a waiting run, so it can't keep spending", async () => {
   for (let i = 0; i < 40 && !(await web("/api/approvals")).body.length; i++) await sleep(100);
   await web("/api/reset", {}); await sleep(1500);
   assert.equal((await call("/purchases", null, DASH, "GET")).body.length, 0); assert.equal((await web(`/api/runs/${r.id}`)).body.status, "cancelled");
+});
+test("F12 Google sign-in (simulated without credentials): signs in, keeps the next page, refuses off-site redirects, signs out", async () => {
+  assert.deepEqual(await (await fetch(W + "/api/auth/me")).json(), { mode: "simulated", signedIn: false, user: null });
+  const r = await fetch(W + "/auth/google?next=%2Fbuild", { redirect: "manual" });
+  assert.equal(r.status, 302); assert.equal(r.headers.get("location"), "/build");
+  const cookie = r.headers.get("set-cookie"); assert.match(cookie, /^ethpc_session=.+; Path=\/; HttpOnly; SameSite=Lax/);
+  const me = await (await fetch(W + "/api/auth/me", { headers: { cookie: cookie.split(";")[0] } })).json();
+  assert.equal(me.signedIn, true); assert.equal(me.user.name, "Local user");
+  const tampered = cookie.split(";")[0].replace(/.$/, (c) => (c === "A" ? "B" : "A"));
+  assert.equal((await (await fetch(W + "/api/auth/me", { headers: { cookie: tampered } })).json()).signedIn, false, "a tampered cookie is not a session");
+  assert.equal((await fetch(W + "/auth/google?next=%2F%2Fevil.example", { redirect: "manual" })).headers.get("location"), "/", "only same-site paths");
+  const out = await fetch(W + "/auth/logout", { method: "POST", headers: { cookie: cookie.split(";")[0] } });
+  assert.match(out.headers.get("set-cookie"), /^ethpc_session=; .*Max-Age=0/);
 });
