@@ -547,13 +547,11 @@ function results(rid, res) {
     if (open && el.dataset.seller && !p.dataset.loaded) { p.dataset.loaded = "1"; loadReviews(p, el.dataset.seller); }
   });
 }
-const NAMES = ["Aarav Mehta", "Priya Nair", "Rohan Kulkarni", "Ananya Iyer", "Kabir Shah", "Meera Joshi", "Vikram Rao", "Sneha Desai", "Arjun Kapoor", "Isha Banerjee", "Dev Malhotra", "Tara Pillai"];
-const reviewer = (sellerId, i) => { let h = 0; for (const c of String(sellerId)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return NAMES[(h + i) % NAMES.length]; };
 async function loadReviews(p, sellerId) {
   try {
     const j = await json(`/api/pc/reviews/${encodeURIComponent(sellerId)}`);
     const n = j.reviews.length, avg = n ? (j.reviews.reduce((t, r) => t + r.rating, 0) / n).toFixed(1) : null;
-    p.innerHTML = `<p class="mut" style="margin:10px 0 4px">${n ? `★ ${avg} from ${n} World ID verified review${n === 1 ? "" : "s"} in the last 90 days.` : "No reviews in the last 90 days."}</p>` + j.reviews.map((r, i) => `<div class="rev"><b style="font-weight:600">${esc(reviewer(sellerId, i))}</b> <span class="pill ok">✓ World ID verified</span><div><span class="stars" aria-label="${r.rating} of 5">${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)}</span></div><div>${esc(r.text)}</div><div class="sm mut">${new Date(r.createdAt * 1000).toLocaleDateString()}, expires ${new Date(r.expiresAt).toLocaleDateString()}</div></div>`).join("");
+    p.innerHTML = `<p class="mut" style="margin:10px 0 4px">${n ? `★ ${avg} from ${n} World ID verified review${n === 1 ? "" : "s"} in the last 90 days.` : "No reviews in the last 90 days."}</p>` + j.reviews.map((r) => `<div class="rev"><span class="pill ok">✓ World ID verified</span><div><span class="stars" aria-label="${r.rating} of 5">${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)}</span></div><div>${esc(r.text)}</div><div class="sm mut">${new Date(r.createdAt * 1000).toLocaleDateString()}, expires ${new Date(r.expiresAt).toLocaleDateString()}</div></div>`).join("");
   } catch (e) { p.innerHTML = `<p class="err">${esc(e.message)}</p>`; }
 }
 const dlg = (html) => { $("dlgBody").innerHTML = `<button class="x" id="dlgX" aria-label="Close">×</button>${html}`; $("dlgX").onclick = () => $("dlg").close(); if (!$("dlg").open) $("dlg").showModal(); };
