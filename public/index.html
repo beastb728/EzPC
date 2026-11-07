@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PC Build Agent · EthPC</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PC Build Agent · EzPC</title>
 <meta name="description" content="An AI agent that shops for your gaming PC and only spends what you approve.">
 <meta name="color-scheme" content="light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -251,7 +251,7 @@ const I = {
   send: '<path d="M4 12 20 4l-6 16-2.5-6.5z"/>',
   sparkle: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
 };
-const LOGO = `<a class="logo" href="/">${svg(I.chip, 22)}EthPC</a>`;
+const LOGO = `<a class="logo" href="/">${svg(I.chip, 22)}EzPC</a>`;
 const clean = (t) => String(t ?? "").replace(/\s*\([^)]*(demo|simulat)[^)]*\)/gi, "").split(/(?<=[.!?])\s+/).filter((x) => !/demo|simulat/i.test(x)).join(" ").trim();
 const ref = (id) => String(id ?? "").replace(/\bDEMO-/g, "");
 const short = (id) => { const s = String(id ?? ""); return s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s; };
@@ -328,7 +328,7 @@ function landing() {
   <main class="lhero">
     <div class="eyebrow">Autonomous PC shopping, under your control</div>
     <h1>The PC agent that shops for you, and never oversteps.</h1>
-    <p class="sub">Tell EthPC what you play and what you can spend. It compares complete builds and pays for its data as it goes, inside the allowance you approve.</p>
+    <p class="sub">Tell EzPC what you play and what you can spend. It compares complete builds and pays for its data as it goes, inside the allowance you approve.</p>
     ${loginError ? `<div class="fail" role="alert" style="max-width:600px;margin:0 auto 14px;text-align:left">${esc(loginError)}</div>` : ""}
     <div class="promptbox"><textarea id="prompt" aria-label="Describe the PC you want" placeholder="${esc(EXAMPLES[0])}">${esc(S.text)}</textarea>
       <div class="row"><span class="hint">Only your budget is required. Anything else gets a stated default.</span><button id="build">Build my PC</button></div></div>

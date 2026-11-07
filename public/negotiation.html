@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Agent negotiation · EthPC</title>
-<meta name="description" content="Your EthPC agent and the shop's agent negotiating live over A2A.">
+<title>Agent negotiation · EzPC</title>
+<meta name="description" content="Your EzPC agent and the shop's agent negotiating live over A2A.">
 <meta name="color-scheme" content="light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -91,7 +91,7 @@ pre{background:#0f172a;color:#dbe4fd;border-radius:8px;padding:12px;overflow:aut
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style></head>
 <body><div class="wrap" id="app">
-<header><span class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>EthPC</span><h1>Agent negotiation</h1><span class="status" id="status"><i></i>Connecting…</span></header>
+<header><span class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>EzPC</span><h1>Agent negotiation</h1><span class="status" id="status"><i></i>Connecting…</span></header>
 <div id="body"><div class="empty">Loading the negotiation…</div></div>
 </div>
 <script>
@@ -113,7 +113,7 @@ let job = null, shown = [];
 function shell() {
   $("body").innerHTML = `
     <section class="duel idle" id="duel">
-      <div class="agent" id="aBuyer"><div class="who"><div class="av">${BOT}</div><div><b>EthPC agent</b><span>Buys for you</span></div></div>
+      <div class="agent" id="aBuyer"><div class="who"><div class="av">${BOT}</div><div><b>EzPC agent</b><span>Buys for you</span></div></div>
         <span class="tag" id="tBuyer">AI</span>
         <ul class="rules"><li>Never pays above the list price</li><li>Never lowers its own offer</li><li>At most 4 rounds</li></ul></div>
       <div class="link" aria-hidden="true">A2A<div class="wire" id="wire"></div></div>
@@ -155,7 +155,7 @@ function addEvent(e, prev) {
   if (e.who === "buyer" || e.who === "seller") {
     const side = e.who === "buyer" ? "b" : "s";
     if (e.by) $(side === "b" ? "tBuyer" : "tShop").textContent = aiTag(e.by);
-    $("chat").insertAdjacentHTML("beforeend", `<div class="msg ${side}"><div class="bub"><div class="act">${esc(ACT[e.act] ?? e.act)}</div>${e.price ? `<div class="price">${usd(e.price)}</div>` : ""}${e.say ? `<div class="say">“${esc(e.say)}”</div>` : ""}</div><div class="meta">${side === "b" ? "EthPC agent" : esc(job.shopName) + " agent"}${dt ? ` · ${dt}` : ""}${e.act === "deal" && e.quoteId ? ` · quote ${esc(e.quoteId.slice(0, 8))}` : ""}</div></div>`);
+    $("chat").insertAdjacentHTML("beforeend", `<div class="msg ${side}"><div class="bub"><div class="act">${esc(ACT[e.act] ?? e.act)}</div>${e.price ? `<div class="price">${usd(e.price)}</div>` : ""}${e.say ? `<div class="say">“${esc(e.say)}”</div>` : ""}</div><div class="meta">${side === "b" ? "EzPC agent" : esc(job.shopName) + " agent"}${dt ? ` · ${dt}` : ""}${e.act === "deal" && e.quoteId ? ` · quote ${esc(e.quoteId.slice(0, 8))}` : ""}</div></div>`);
   } else {
     const t = e.act === "open" ? `Your agent opened a negotiation with ${esc(job.shopName)}'s agent over A2A` : esc(e.text);
     $("chat").insertAdjacentHTML("beforeend", `<div class="sys">${t}</div>`);
@@ -194,11 +194,11 @@ async function main() {
   for (;;) {
     const r = await fetch(`/api/pc/negotiations/${encodeURIComponent(id)}`);
     if (r.ok) { job = await r.json(); break; }
-    if (r.status === 401) { $("body").innerHTML = `<div class="empty">Sign in to EthPC in the main window first, then reload this one.</div>`; return; }
+    if (r.status === 401) { $("body").innerHTML = `<div class="empty">Sign in to EzPC in the main window first, then reload this one.</div>`; return; }
     if (++misses > 10) { $("body").innerHTML = `<div class="empty">This negotiation isn't available any more. Start a new one from checkout.</div>`; return; }
     await sleep(500);
   }
-  shell(); $("status").innerHTML = "<i></i>Live over A2A"; document.title = `${job.shopName} · Agent negotiation · EthPC`;
+  shell(); $("status").innerHTML = "<i></i>Live over A2A"; document.title = `${job.shopName} · Agent negotiation · EzPC`;
   turn("b");
   // Shows each event as it arrives, at most one every 0.9 s so it can be read; the polling keeps up with the agents.
   for (;;) {
