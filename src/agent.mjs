@@ -151,7 +151,28 @@ const searchKey = (intentId, requirements, attempt) => {
   const ref = `${createHash("sha256").update(JSON.stringify(stable)).digest("hex").slice(0, 24)}#${attempt}`;
   return { ref, rid: requestId(intentId, API, ref) };
 };
-const searchView = (x) => ({ requestId: x.requestId, status: x.status, reason: x.reason, txId: x.txId, pullTx: x.pullTx, refundTx: x.refundTx, amount: x.amount, why: x.why, result: x.result ?? null });
+const searchView = (x) => ({ requestId: x.requestId, status: x.status, reason: x.reason, txId: x.txId, pullTx: x.pullTx, refundTx: x.refundTx, amount: x.amount, why: x.why, result: x.result ?? null, feeNegotiation: feeView(x.requestId) });
+// The x402 fee is negotiated too. Before asking the Guard to pay, the agent haggles with RigAdvisor's own A2A sales agent
+// (AI against AI) when the listing negotiates and the user's negotiation switch is on. A deal becomes a quote; the Guard
+// confirms it with the seller and pays that amount over x402. No deal, an error or the switch off: the list fee.
+const feeJobs = new Map(); // search request ID -> negotiation job ID
+const feeView = (rid) => { const j = negotiations.get(feeJobs.get(rid)); return j ? { id: j.id, status: j.status, skipped: !!j.skipped, listFee: j.listTotal, quote: j.quote ? { id: j.quote.id, price: j.quote.price } : null, rounds: j.events.filter((e) => e.who === "buyer" && e.act === "offer").length } : null; };
+async function negotiateFee(rid) {
+  const l = (await get(url("guard", `/listings/${API}`), T)).body;
+  const job = { id: randomUUID(), kind: "fee", status: "running", packageId: API, sellerId: API, shopName: "RigAdvisor", label: "PC recommendations (x402 fee)", listTotal: String(l.priceTinybars ?? "0"), unit: { symbol: ASSET.symbol, decimals: ASSET.decimals }, startedAt: Date.now(), quote: null, events: [] };
+  negotiations.set(job.id, job); feeJobs.set(rid, job.id);
+  if (negotiations.size > 200) negotiations.delete(negotiations.keys().next().value);
+  if (feeJobs.size > 200) feeJobs.delete(feeJobs.keys().next().value);
+  const log = (text, kind = "info", meta = {}) => job.events.push({ at: Date.now(), text, kind, ...meta });
+  try {
+    if (!l.endpoint || !l.negotiates) { job.skipped = true; return null; }
+    log(`Opens a negotiation with RigAdvisor's sales agent over A2A for the recommendation fee (list ${Number(l.priceTinybars) / 10 ** ASSET.decimals} ${ASSET.symbol})`, "info", { who: "system", act: "open", price: String(l.priceTinybars) });
+    job.quote = await aiNegotiate({ listing: l, log });
+    return job.quote;
+  } catch (e) { log(`Fee negotiation unavailable (${cleanError(e)}); the list fee stands`, "info", { who: "system", act: "note" }); return null; }
+  finally { job.status = "done"; }
+}
+const starting = new Set(); // searches whose fee is being negotiated, before the Guard has the purchase
 a.post("/pc/recommend", pcToken, pcH(async (q, r) => {
   const p = await pcRequirements(q.body); if (!p.ready) return r.status(409).json({ error: "answer the open questions first" });
   const f = await feeStatus();
@@ -168,14 +189,18 @@ a.post("/pc/recommend", pcToken, pcH(async (q, r) => {
   const { ref, rid } = searchKey(f.limit.intentId, p.requirements, attempt);
   const had = await get(url("guard", `/purchases/${rid}`), T);
   if (had.status === 200) return r.json({ ...searchView(had.body), attempt, duplicate: true });
-  searchErrors.delete(rid);
-  post(url("guard", "/purchase"), { requestId: rid, listingKey: API, input: { requirements: p.requirements }, purchaseRef: ref, reason: `get complete PC recommendations for the user's request: ${String(q.body.text).slice(0, 120)}` }, T)
-    .catch((e) => { if (searchErrors.size > 200) searchErrors.clear(); searchErrors.set(rid, cleanError(e)); });
-  r.json({ requestId: rid, attempt, status: "starting" });
+  if (starting.has(rid)) return r.json({ requestId: rid, attempt, status: "negotiating", duplicate: true });
+  searchErrors.delete(rid); starting.add(rid);
+  (async () => {
+    const quote = await negotiateFee(rid).catch(() => null);
+    return post(url("guard", "/purchase"), { requestId: rid, listingKey: API, input: { requirements: p.requirements }, purchaseRef: ref, reason: `get complete PC recommendations for the user's request: ${String(q.body.text).slice(0, 120)}`, quoteId: quote?.id }, T);
+  })().catch((e) => { if (searchErrors.size > 200) searchErrors.clear(); searchErrors.set(rid, cleanError(e)); }).finally(() => starting.delete(rid));
+  r.json({ requestId: rid, attempt, status: "negotiating" });
 }));
 a.get("/pc/recommend/:rid", pcToken, pcH(async (q, r) => {
   const rid = String(q.params.rid), x = await get(url("guard", `/purchases/${encodeURIComponent(rid)}`), T);
   if (x.status === 200 && x.body.listingKey === API) return r.json(searchView(x.body));
+  if (starting.has(rid)) return r.json({ requestId: rid, status: "negotiating", feeNegotiation: feeView(rid) });
   if (searchErrors.has(rid)) return r.json({ requestId: rid, status: "error", reason: `the Guard couldn't be reached: ${searchErrors.get(rid)}. Nothing was paid.` });
   r.status(404).json({ error: "no search with that ID" });
 }));

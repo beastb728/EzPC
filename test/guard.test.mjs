@@ -208,7 +208,7 @@ const PC_TEXT = "I want a gaming PC targeting GTA 6 at 60 FPS, a 4K monitor, and
 async function apiLimit(max = H(0.2), over) { const x = (await web("/api/pc/limit", { maxTotal: max, approvalOver: over })).body; const d = await web(`/api/approvals/${x.approvalId}/approve`, {}); assert.equal(d.body.state, "active"); }
 // A search starts in the background; the page (and these tests) follow it until it settles.
 const FEE = () => H(0.05);
-async function settle(rid) { for (let i = 0; i < 100; i++) { const x = (await web(`/api/pc/recommend/${rid}`)).body; if (x.status && !["starting", "requested", "paying"].includes(x.status)) return x; await sleep(100); } throw new Error("search didn't settle"); }
+async function settle(rid) { for (let i = 0; i < 100; i++) { const x = (await web(`/api/pc/recommend/${rid}`)).body; if (x.status && !["starting", "negotiating", "requested", "paying"].includes(x.status)) return x; await sleep(100); } throw new Error("search didn't settle"); }
 async function search(answers = PC_ANS, extra = {}) { const r = await web("/api/pc/recommend", { text: PC_TEXT, answers, approvedFee: FEE(), ...extra }); if (r.status !== 200) return r.body; return { ...(await settle(r.body.requestId)), attempt: r.body.attempt, duplicate: !!r.body.duplicate }; }
 const paidRecommendation = async () => { await apiLimit(); const r = await search(); assert.equal(r.status, "paid", r.reason); return r; };
 test("F1 the recommendation API demands an x402 payment, and refuses a bad request before asking for one", async () => {
@@ -225,12 +225,17 @@ test("F2 requirements are free; the search needs an approved allowance; a pinned
   const wrong = await web("/api/pc/recommend", { text: PC_TEXT, answers: PC_ANS, approvedFee: H(0.01) }); assert.equal(wrong.status, 409); assert.match(wrong.body.error, /approve again/);
   assert.equal(await allowance(), H(0.2));
   const r = await search();
-  assert.equal(r.status, "paid"); assert.match(r.txId, /^SIMULATED-/); assert.equal(r.amount, H(0.05)); assert.equal(await allowance(), H(0.15));
+  assert.equal(r.status, "paid"); assert.match(r.txId, /^SIMULATED-/);
+  // The fee is negotiated with RigAdvisor's agent over A2A first: paid at the agreed price, at least its 80% floor.
+  const fn = r.feeNegotiation; assert.ok(fn?.quote, "a fee quote was agreed"); assert.equal(r.amount, fn.quote.price);
+  assert.ok(BigInt(r.amount) < BigInt(H(0.05)) && BigInt(r.amount) >= BigInt(H(0.04)), r.amount);
+  assert.equal(await allowance(), String(BigInt(H(0.2)) - BigInt(r.amount)));
+  assert.ok((await web(`/api/pc/search/${r.requestId}`)).body.events.some((e) => e.event === "quote_confirmed"), "the Guard confirmed the quote with the seller");
   assert.equal(r.result.packages.length, 3); assert.equal(r.result.inventory, "simulated");
   for (const p of r.result.packages) { assert.ok(p.compatible); assert.ok([...p.components, ...p.peripherals].every((l) => l.sellerId === p.sellerId)); assert.equal(p.sellerRating.label, "No recent reviews"); }
   // A retry (double click, network blip) returns the same result without a second fee.
   const again = (await web("/api/pc/recommend", { text: PC_TEXT, answers: PC_ANS, approvedFee: FEE() })).body;
-  assert.equal(again.duplicate, true); assert.equal(again.requestId, r.requestId); assert.equal(again.txId, r.txId); assert.equal(await allowance(), H(0.15));
+  assert.equal(again.duplicate, true); assert.equal(again.requestId, r.requestId); assert.equal(again.txId, r.txId); assert.equal(await allowance(), String(BigInt(H(0.2)) - BigInt(r.amount)));
 });
 test("F3 no PC-sized amount can be paid in crypto: the Guard's fee cap refuses it whatever the intent allows", async () => {
   await activate({ categories: ["pc-recommendations"], maxTotal: H(5), approvalOver: H(5) });
@@ -291,8 +296,8 @@ test("F7 a fee above the 'ask me' amount waits for the user's on-chain signature
   assert.equal((await web("/api/pc/recommend", { text: PC_TEXT, answers: PC_ANS, approvedFee: FEE() })).body.duplicate, true);
 });
 test("F8 retries: only after an attempt ended without paying; never while one is pending or after it succeeded", async () => {
-  await apiLimit(H(0.04)); // less than the fee: the Guard refuses, nothing moves
-  const a1 = await search(); assert.equal(a1.status, "blocked"); assert.match(a1.reason, /per-purchase limit|budget would be exceeded/); assert.equal(await allowance(), H(0.04));
+  await apiLimit(H(0.03)); // less than the fee, even negotiated down to its floor: the Guard refuses, nothing moves
+  const a1 = await search(); assert.equal(a1.status, "blocked"); assert.match(a1.reason, /per-purchase limit|budget would be exceeded/); assert.equal(await allowance(), H(0.03));
   const ev = (await web(`/api/pc/search/${a1.requestId}`)).body.events.map((e) => e.event); assert.ok(ev.includes("requested") && ev.includes("blocked"), "progress comes from the Guard's audit trail");
   const a2 = await search(PC_ANS, { attempt: 2 }); assert.notEqual(a2.requestId, a1.requestId); assert.equal(a2.status, "blocked");
   await web("/api/reset", {}); await apiLimit(H(0.2), H(0.01));

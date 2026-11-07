@@ -97,8 +97,10 @@ pre{background:#0f172a;color:#dbe4fd;border-radius:8px;padding:12px;overflow:aut
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-const usd = (u) => `${(Number(u) / 1e6).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`;
-const short = (u) => (Number(u) / 1e6).toLocaleString("en-US", { maximumFractionDigits: 0 });
+// Amounts in the job's own unit: USDC for PC prices; the API fee is in the payment asset (USDC, or HBAR when simulated).
+const U = () => job?.unit ?? { symbol: "USDC", decimals: 6 }, small = () => Number(job?.listTotal ?? 0) / 10 ** U().decimals < 10;
+const usd = (u) => `${(Number(u) / 10 ** U().decimals).toLocaleString("en-US", { minimumFractionDigits: small() ? 3 : 2, maximumFractionDigits: small() ? 4 : 2 })} ${U().symbol}`;
+const short = (u) => (Number(u) / 10 ** U().decimals).toLocaleString("en-US", { maximumFractionDigits: small() ? 3 : 0 });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const arkivUrl = (k) => /^0x[0-9a-f]{64}$/i.test(String(k ?? "")) ? `https://rabdi.explorer.arkiv.network/entity/${k}` : null;
 const clock = (t) => { const s = Math.max(0, Math.ceil((t - Date.now()) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
@@ -134,7 +136,7 @@ function renderTrack() {
   const list = Number(job.listTotal), moves = shown.filter((e) => e.price && ["offer", "counter", "accept", "deal"].includes(e.act));
   if (!moves.length) return;
   const lo = Math.min(...moves.map((e) => Number(e.price))) * 0.97, pos = (p) => `${Math.max(0, Math.min(100, ((Number(p) - lo) / (list - lo)) * 100))}%`;
-  $("lo").textContent = short(lo) + " USDC";
+  $("lo").textContent = `${short(lo)} ${U().symbol}`;
   const lastB = [...moves].reverse().find((e) => e.who === "buyer"), lastS = [...moves].reverse().find((e) => e.who === "seller" && e.act !== "deal"), dealE = moves.find((e) => e.act === "deal");
   let h = `<div class="rail"></div>`;
   if (lastB && lastS && !dealE) h += `<div class="band" style="left:${pos(lastB.price)};width:calc(${pos(lastS.price)} - ${pos(lastB.price)})"></div>`;
@@ -172,12 +174,13 @@ const nextSide = (e) => !e ? "b" : e.act === "deal" || e.act === "decline" || e.
 
 async function renderDeal() {
   const q = job.quote, d = $("deal");
-  if (!q) { d.innerHTML = `<section class="card deal none"><div class="top"><b>No deal this time.</b><span class="mut">The list price of ${usd(job.listTotal)} stands. You can try again from checkout.</span></div></section>`; return; }
+  if (!q) { d.innerHTML = `<section class="card deal none"><div class="top"><b>No deal this time.</b><span class="mut">The list price of ${usd(job.listTotal)} stands.${job.kind === "fee" ? "" : " You can try again from checkout."}</span></div></section>`; return; }
   const saved = Number(job.listTotal) - Number(q.price), rounds = shown.filter((e) => e.who === "buyer" && e.act === "offer").length;
   d.innerHTML = `<section class="card deal"><div class="top"><div class="check">✓</div><div><div class="mut sm">Deal agreed with ${esc(job.shopName)}</div><span class="big">${usd(q.price)}</span><s>${usd(job.listTotal)}</s></div>${saved > 0 ? `<span class="save">You save ${usd(saved)} (${(saved * 100 / Number(job.listTotal)).toFixed(1)}%)</span>` : ""}</div>
-    <dl class="facts"><div><dt>Rounds</dt><dd>${rounds}</dd></div><div><dt>Quote</dt><dd class="mono">${esc(q.id.slice(0, 8))}</dd></div><div id="hold"><dt>Price held for</dt><dd>${clock(q.expiresAt)}</dd></div><div><dt>On Arkiv</dt><dd id="ark">publishing…</dd></div></dl>
-    <p class="mut sm" style="margin:12px 0 0">Go back to the checkout window to pay at this price.</p></section>`;
+    <dl class="facts"><div><dt>Rounds</dt><dd>${rounds}</dd></div><div><dt>Quote</dt><dd class="mono">${esc(q.id.slice(0, 8))}</dd></div><div id="hold"><dt>Price held for</dt><dd>${clock(q.expiresAt)}</dd></div>${job.kind === "fee" ? "" : `<div><dt>On Arkiv</dt><dd id="ark">publishing…</dd></div>`}</dl>
+    <p class="mut sm" style="margin:12px 0 0">${job.kind === "fee" ? "The Guard now confirms this quote with RigAdvisor and pays it over x402 on Hedera." : "Go back to the checkout window to pay at this price."}</p></section>`;
   const tick = setInterval(() => { const h = $("hold"); if (!h) return clearInterval(tick); const left = q.expiresAt - Date.now(); h.classList.toggle("soon", left < 60000); h.querySelector("dd").textContent = left > 0 ? clock(q.expiresAt) : "expired"; if (left <= 0) clearInterval(tick); }, 1000);
+  if (job.kind === "fee") return;
   for (let i = 0; i < 25; i++) {
     const r = await fetch(`/api/pc/quotes/${encodeURIComponent(q.id)}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
     const u = arkivUrl(r?.entityKey);

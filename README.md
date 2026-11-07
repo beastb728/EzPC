@@ -1,19 +1,24 @@
-# EthPC: the PC agent that shops for you, and never oversteps
+# EzPC: the PC agent that shops for you, and never oversteps
 
-Tell EthPC what you play and what you can spend. An AI agent finds shops on **Arkiv**, pays for expert recommendation data with **x402 in USDC on Hedera**, compares three complete gaming PCs, and haggles with each shop's AI agent over **A2A**. It can only spend from an allowance you approve once in your **HashPack** wallet, and every move it makes is logged publicly on a **Hedera Consensus Service** topic. Reviews of shops need a **World ID** check, so they come from real people.
+Tell EzPC what you play and what you can spend. An AI agent finds a recommendation service on **Arkiv**, **negotiates its fee with the service's own AI agent over A2A**, pays the agreed price with **x402 in USDC on Hedera**, compares three complete gaming PCs, and haggles with each shop's AI agent over **A2A** too. It can only spend from an allowance you approve once in your **HashPack** wallet, and every move it makes is logged publicly on a **Hedera Consensus Service** topic. Reviews of shops need a **World ID** check, so they come from real people.
 
 - **Demo video:** _add link_
 - **Settled x402 payment (Hedera testnet):** [`0.0.9185802@1793920133.334517547`](https://hashscan.io/testnet/transaction/0.0.9185802-1793920133-334517547): 0.05 USDC from the Guard (`0.0.11289391`) to the recommendation service (`0.0.11286079`), network fee paid by the x402 facilitator (`0.0.9185802`).
 - **The allowance pull that funded it:** [`0.0.11289391@1793920131.554598077`](https://hashscan.io/testnet/transaction/0.0.11289391-1793920131-554598077): 0.05 USDC from the user's wallet (`0.0.11289315`) to the Guard, as an approved-allowance transfer.
+- **Name:** the project was called EthPC until late in the hackathon. The repository, the Arkiv schema names (`ethpc.*`) and some internal names keep the old name; everything users see says EzPC.
 - **Public audit log (HCS topic):** [`0.0.11286082`](https://hashscan.io/testnet/topic/0.0.11286082): every `paid` entry names its pull and payment transactions.
+
+## Where this was built
+
+This repository was created at ETHGlobal Mumbai (first commit 6 Nov 2026), and the product in it (the PC agent, shops and reviews on Arkiv, HashPack signing, World ID checkpoints, the negotiation window and fee negotiation) was built here. Some of the Guard and payment code started in a small learning prototype written just before the event; the team raised this with the ETHGlobal judges on site and was told a repository created at the event is eligible.
 
 ## What the user sees
 
 1. **Describe the PC.** "Find me a gaming PC with a 4K monitor, within 4,000 USDC." Only the budget is required; everything else gets a stated default.
 2. **Sign in with Google.** Your prompt is kept, and you continue where you left off.
 3. **Connect HashPack and approve one allowance**, for example 0.20 USDC. That's all the agent may ever spend on data. Nothing leaves your wallet yet.
-4. **The agent works on its own:** it finds the recommendation service on Arkiv, pays its 0.05 USDC fee with x402, reads shop listings and reviews from Arkiv for free, and shows three complete PCs with compatibility checks. It then **checks its own payment on Hedera with the Hedera Agent Kit**: the transfer, the allowance pull and the public audit entry.
-5. **Pick one and let your agent negotiate.** You watch your agent and the shop's agent haggle live over A2A; a deal pops up with what you saved.
+4. **The agent works on its own:** it finds the recommendation service on Arkiv, **negotiates the 0.05 USDC fee with the service's AI agent over A2A** (for example down to 0.04), pays the agreed fee with x402, reads shop listings and reviews from Arkiv for free, and shows three complete PCs with compatibility checks. It then **checks its own payment on Hedera with the Hedera Agent Kit**: the transfer, the allowance pull and the public audit entry.
+5. **Pick one and let your agent negotiate.** A **negotiation window** opens: both agents side by side with their rules and AI model, a price track closing in, the chat with real reply times, and the deal. The shop publishes the agreed price on Arkiv as a readonly entry that expires with the quote (5 minutes); checkout shows a countdown and the link. Every part also shows how long its price stays valid on Arkiv.
 6. **Check out** with a mock card (the PC itself isn't paid in crypto), mark it delivered, and **write a review** after a World ID check.
 
 The sidebar always shows the allowance left, and **Revoke** ends it in one transaction. **Activity** and **Audit** show every payment and Guard decision.
@@ -31,10 +36,13 @@ sequenceDiagram
     participant F as x402 facilitator
     participant H as Hedera (HTS, HCS)
     U->>H: Approve USDC allowance for the Guard (signed in HashPack)
-    A->>G: "Buy recommendations for this request"
+    A->>S: A2A: negotiate the fee with RigAdvisor's AI agent
+    S-->>A: Quote (agreed price, 5 minutes)
+    A->>G: "Buy recommendations for this request, with this quote"
+    G->>S: Confirm the quote with the seller
     G->>G: Checks (fail closed, see below)
-    G->>H: Pull exactly the fee from the user's allowance
-    G->>S: Request, gets HTTP 402 with price and pay-to
+    G->>H: Pull exactly the agreed fee from the user's allowance
+    G->>S: Request with x-quote-id, gets HTTP 402 with the agreed price and pay-to
     G->>F: Signed USDC transfer (x402 exact scheme)
     F->>H: Submit, facilitator pays the network fee
     S-->>G: Three PC packages
@@ -42,6 +50,7 @@ sequenceDiagram
     G-->>A: Result
 ```
 
+0. **Negotiate first.** Before paying, the agent haggles with RigAdvisor's own sales agent over A2A (AI against AI; the seller's lowest price stays on its side and is enforced in code). A deal is a quote. The Guard confirms the quote with the seller, and the seller's x402 endpoint then charges the agreed price for that quote ID. No deal, or the user's negotiation switch off: the list fee.
 1. **Allowance.** In HashPack the user approves a USDC allowance with the Guard's account as spender (`AccountAllowanceApproveTransaction`). Hedera enforces the cap, and revoking it is one transaction.
 2. **Pull, then pay.** x402 on Hedera needs the paying account to sign, so it can't pay straight from an allowance. For each fee the Guard pulls exactly that amount from the user (an approved transfer; Hedera refuses it if the allowance is too low or revoked), waits until the Mirror Node shows the funds, then pays the seller through x402. If the payment fails, the Guard refunds the user.
 3. **Audit.** Every decision (paid, blocked, refunded, allowance approved or revoked, order placed, review published) is a message on the HCS topic. `npm run verify` checks from public data alone that every USDC leaving the Guard has an audit entry.
@@ -49,7 +58,7 @@ sequenceDiagram
 
 ### The Guard's checks, in order (fail closed)
 
-Duplicate request → active allowance → listing found on Arkiv, published by an approved owner, not expired → category allowed → per-fee limit (never above 1 USDC, `MAX_FEE_UNITS`) and remaining allowance → seller account exists on the Mirror Node → the seller's 402 terms match the listing, checked **before** signing → AI intent check against the user's task → step-up if above the "ask me" amount → allowance pull → x402 payment → refund if it fails.
+Duplicate request → negotiated quote confirmed with the seller (if any) → active allowance → listing found on Arkiv, published by an approved owner, not expired → category allowed → per-fee limit (never above 1 USDC, `MAX_FEE_UNITS`) and remaining allowance → seller account exists on the Mirror Node → the seller's 402 terms match the listing, checked **before** signing → AI intent check against the user's task → step-up if above the "ask me" amount → allowance pull → x402 payment → refund if it fails.
 
 ## Sponsor technology
 
@@ -63,18 +72,19 @@ Duplicate request → active allowance → listing found on Arkiv, published by 
 | **Scheduled Transactions** for human approval above a set amount | `src/ledger.mjs` (`ScheduleCreateTransaction`), signed in HashPack |
 | **Mirror Node REST API** to confirm allowances, balances and settlement | `src/ledger.mjs`, `src/verify.mjs` |
 | **Hedera Agent Kit** (`@hashgraph/hedera-agent-kit`, read-only query tools, no key): after paying, the agent verifies its own payment on Hedera: the x402 transfer and the allowance pull (`get_transaction_record_query_tool`) and the Guard's HCS audit entry naming both (`get_topic_messages_query_tool`). The build page shows "Verified on Hedera by the agent" with HashScan links | `src/onchain-proof.mjs`, `GET /api/pc/proof/:id`; spending report in `src/spend-report.mjs` |
-| **Hedera Network MCP** (hosted, `agentic-testnet-mcp.hedera.com`) alongside EthPC's own MCP server, so Claude can shop through the Guard and manage the wallet in one chat | see [Use it from Claude](#use-it-from-claude-mcp) |
+| **Hedera Network MCP** (hosted, `agentic-testnet-mcp.hedera.com`) alongside EzPC's own MCP server, so Claude can shop through the Guard and manage the wallet in one chat | see [Use it from Claude](#use-it-from-claude-mcp) |
 | **Spending controls**: allowance budget, per-fee cap, approved-seller allowlist, approval above an amount | `src/guard.mjs` |
-| **A2A negotiation** between the buyer agent and each shop's AI agent | `src/a2a.mjs`, `src/seller-brain.mjs`, `src/buyer-brain.mjs` |
+| **A2A negotiation before payment**: the buyer agent negotiates the x402 fee itself with RigAdvisor's AI agent, then pays the agreed price; it also negotiates each PC with the shop's AI agent | `src/agent.mjs` (`negotiateFee`), `src/a2a.mjs`, `src/seller-brain.mjs`, `src/buyer-brain.mjs`; watch it in `/negotiation` |
 | **No Solidity**: everything uses the JS SDK (`@hiero-ledger/sdk`) and native services | |
 
 ### Arkiv
-Shops publish their parts and prices to Arkiv (Rabdi testnet) from their own wallets, and the recommendation API publishes its listing there too, so the agent discovers it without a hard-coded URL. An offer only counts if the shop's own wallet signed it. Offers expire at the end of their offer period unless the shop renews them; reviews expire after 90 days, so ratings reflect recent buyers (`src/pc-directory.mjs`, `src/reviews.mjs`, `src/directory.mjs`).
+Shops publish their parts and prices to Arkiv (Rabdi testnet) from their own wallets, and the recommendation API publishes its listing there too, so the agent discovers it without a hard-coded URL. An offer only counts if the shop's own wallet signed it. Offers expire at the end of their offer period unless the shop renews them, and the app shows each price's time to live; reviews expire after 90 days, so ratings reflect recent buyers. A price two agents agree is published by the shop as a readonly entry that lives exactly as long as the quote. Every part and review links to its entry on the explorer (`src/pc-directory.mjs`, `src/reviews.mjs`, `src/directory.mjs`, `src/quote-board.mjs`).
 
 | Entity type | Writer wallet | Live |
 |---|---|---|
 | `ethpc.pc-offers.v1`, `ethpc.pc-sellers.v1` | pixelbazaar `0x00d4a9331add38bb2e0d7e32da9f687bf05a8d32`, voltforge `0xc0020afb29fae96b31614c25d6d3ac23eb1fb5ff`, rigroom `0xf995383aba3b72151501ad4b49b475afa7390f1d` | 44 offers, 3 profiles |
 | `ethpc.pc-reviews.v2`, `ethpc.listings.usdc` | `0x28ad3aa463b31584fac2dbee6958ab5dde79de6c` | 32 reviews (31 seeded samples, 1 written in the app), 12 listings |
+| `ethpc.pc-quotes.v1` | the shop's own wallet | one per agreed PC price, readonly, gone after 5 minutes |
 
 **Run a query yourself (no keys):** graphics cards in stock, still on offer, at or under 800 USDC, signed by the shops' own wallets:
 
@@ -142,7 +152,7 @@ npm start                 # then open http://localhost:4000
 - **AI model:** `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, used for reading requests, the intent check and the negotiating agents.
 
 ```bash
-npm test      # 123 tests, simulated mode; stop a running copy first (same ports)
+npm test      # 129 tests, simulated mode; stop a running copy first (same ports)
 npm run verify    # live: checks the Guard's payments against the HCS log from public data only
 ```
 
@@ -152,11 +162,11 @@ npm run verify    # live: checks the Guard's payments against the HCS log from p
 
 ```bash
 npm start
-claude mcp add ethpc -- node "<path-to-repo>/src/mcp.mjs"
+claude mcp add ezpc -- node "<path-to-repo>/src/mcp.mjs"
 claude mcp add --transport http hedera-testnet https://agentic-testnet-mcp.hedera.com/mcp   # then /mcp → Authenticate with HashPack
 ```
 
-**EthPC tools (PC flow)**
+**EzPC tools (PC flow)**
 
 | Tool | What it does |
 |---|---|
@@ -169,7 +179,7 @@ claude mcp add --transport http hedera-testnet https://agentic-testnet-mcp.heder
 
 The earlier general tools (`request_intent`, `get_intent`, `find_sellers`, `buy`, `make_offer`, `negotiate_price`, `check_purchase`, `spending_report`) are still there.
 
-**Example prompt:** "Find me a 1440p gaming PC for GTA 6 under 1,500 USDC. Use the ethpc tools: check my allowance, find builds, verify the payment on Hedera, and negotiate the cheapest option. Then use hedera-testnet to show my USDC balance."
+**Example prompt:** "Find me a 1440p gaming PC for GTA 6 under 1,500 USDC. Use the ezpc tools: check my allowance, find builds, verify the payment on Hedera, and negotiate the cheapest option. Then use hedera-testnet to show my USDC balance."
 
 ## What's real and what isn't
 
@@ -177,7 +187,7 @@ The earlier general tools (`request_intent`, `get_intent`, `find_sellers`, `buy`
 |---|---|
 | Recommendation fee, allowance, pulls, refunds, step-ups, HCS audit | **Real**, Hedera testnet, USDC |
 | Shop listings and reviews | **Real** records on Arkiv; the shops and their stock are sample data, not real products |
-| A2A negotiation | **Real** agents (`@a2a-js/sdk`) with AI personas; each shop's lowest price is enforced in code |
+| A2A negotiation | **Real** agents (`@a2a-js/sdk`) with AI personas, for the x402 fee and for each PC; each seller's lowest price is enforced in code |
 | PC checkout, order, delivery | **Mock**: no card details collected, nothing charged, no real order |
 | Performance estimates | Labelled sample estimates, not benchmarks |
 
@@ -194,4 +204,4 @@ The earlier general tools (`request_intent`, `get_intent`, `find_sellers`, `buy`
 [MIT](LICENSE).
 
 ## Project layout
-`src/` services and logic · `public/index.html` the web app · `wallet/` HashPack connector bundle · `test/` 123 tests (`node --test`) · `scripts-*.mjs` setup · `experiments/` live checks.
+`src/` services and logic · `public/index.html` the web app · `public/negotiation.html` the negotiation window · `wallet/` HashPack connector bundle · `test/` 129 tests (`node --test`) · `scripts-*.mjs` setup · `experiments/` live checks.

@@ -228,7 +228,8 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch
 const reqKey = () => JSON.stringify([S.text.trim(), S.answers]);
 
 let WAL = { mode: "simulated" }, STATUS = null, asset = { symbol: "USDC", decimals: 6 }, hpLoad = null, worldPop = null;
-const units = (u) => `${(Number(u) / 10 ** asset.decimals).toFixed(asset.decimals > 6 ? 4 : 2)} ${asset.symbol}`;
+// Fee amounts keep every significant digit (a negotiated 0.047 USDC must not read as 0.05), with at least 2 decimals (4 for HBAR).
+const units = (u) => `${(Number(u) / 10 ** asset.decimals).toLocaleString("en-US", { useGrouping: false, minimumFractionDigits: asset.decimals > 6 ? 4 : 2, maximumFractionDigits: Math.min(asset.decimals, 8) })} ${asset.symbol}`;
 const isHP = () => WAL.mode === "hashpack";
 const worldLive = () => STATUS?.modes.world === "live";
 const loadHP = () => hpLoad ??= new Promise((ok, no) => { const s = document.createElement("script"); s.src = "/hashpack.js"; s.onload = () => window.HashPack.init(WAL.projectId).then(ok, no); s.onerror = () => no(new Error("couldn't load the HashPack connector")); document.head.appendChild(s); }).catch((e) => { hpLoad = null; throw e; });
@@ -465,7 +466,7 @@ async function start(attempt) {
   catch (e) { $("agentPanel").hidden = false; $("agentMsg").innerHTML = `<div class="fail">${esc(e.message)}</div>`; if (/limit|allowance/i.test(e.message)) showAuth(); }
 }
 let lastItems = null, shown = 0, revealT = null, fresh = -1, onRevealed = null;
-const PENDING = ["Reading your request…", "Paying for recommendations (x402)…", "Reading Arkiv listings and seller reviews…", "Comparing complete PCs…"];
+const PENDING = ["Reading your request…", "Negotiating the fee with RigAdvisor's agent (A2A)…", "Paying for recommendations (x402)…", "Reading Arkiv listings and seller reviews…", "Comparing complete PCs…"];
 function drawSteps() {
   const items = lastItems; if (!items || !$("steps")) return;
   const lead = items.findIndex(([st]) => st !== "done"), doneCount = lead === -1 ? items.length : lead;
@@ -485,7 +486,14 @@ async function follow(rid) {
   const st = x.status, res = x.result, paid = st === "paid", bad = ["blocked", "failed", "denied", "expired", "error"].includes(st);
   const payState = paid ? "done" : bad ? "bad" : "now";
   agentState(res ? "Done" : bad ? "Stopped" : st === "awaiting_approval" ? "Needs you" : "Working", res ? "ok" : bad ? "no" : st === "awaiting_approval" ? "ask" : "blue");
-  const items = [["done", "Read your request"],
+  // The x402 fee is negotiated first, agent to agent, then paid at the agreed price.
+  const fn = x.feeNegotiation, watch = fn?.id && !fn.skipped ? ` <a class="sm" href="/negotiation?id=${encodeURIComponent(fn.id)}" target="ethpc-negotiation">Watch it ↗</a>` : "";
+  const feeStep = st === "negotiating" || fn?.status === "running" ? ["now", `Negotiating the fee with RigAdvisor's agent over A2A…${watch}`]
+    : fn?.quote ? ["done", `Negotiated the fee with RigAdvisor's agent over A2A: <s>${units(fn.listFee)}</s> → <b>${units(fn.quote.price)}</b> (${fn.rounds} round${fn.rounds === 1 ? "" : "s"}).${watch}`]
+    : fn?.skipped ? ["done", "Fee negotiation is off, so the agent pays RigAdvisor's list fee"]
+    : fn ? ["done", `Asked RigAdvisor's agent for a lower fee over A2A; it held at the list fee.${watch}`]
+    : ["done", "Checked RigAdvisor's fee"];
+  const items = [["done", "Read your request"], feeStep,
     [payState, paid ? `Paid <b>${units(x.amount)}</b> to RigAdvisor for recommendations (x402). ${txLink(x.txId)}` : bad ? `Recommendation fee not paid (${esc(st)})` : st === "awaiting_approval" ? "Waiting for your signature on the fee" : st === "unknown" ? "Checking the payment outcome on Hedera (it won't be retried)" : `Paying ${FEE?.api ? units(FEE.api.fee) : "the fee"} for recommendations (x402)…`],
     [res ? "done" : paid ? "now" : "todo", res ? "Read shop listings and seller reviews from Arkiv (free)" : "Reading Arkiv listings and seller reviews"],
     [res ? "done" : "todo", res ? `Compared ${res.considered} complete packages and picked ${res.packages.length}` : "Comparing complete PCs"]];
