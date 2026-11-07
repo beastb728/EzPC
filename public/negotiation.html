@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f5f6f8;--card:#fff;--line:#e6e8ec;--line2:#d0d5dd;--ink:#101828;--ink2:#344054;--mut:#667085;--faint:#98a2b3;
+:root{--bg:#f3eee3;--card:#fffdf8;--line:#e8dfcc;--line2:#d6c9b0;--ink:#101828;--ink2:#3a3730;--mut:#6b6455;--faint:#a39a87;
   --blue:#2f5be7;--blue-w:#eef2fe;--blue-s:#a9bdf6;--green:#15803d;--green-w:#e8f6ed;--amber:#b54708;--amber-w:#fef4e6;--red:#d92d20;--red-w:#fef0ee;
   --shop:#c2410c;--shop-w:#fff3ec;--shop-s:#fdc9ad;
   --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
@@ -24,7 +24,7 @@ header h1{font-size:15px;font-weight:600;color:var(--ink2);margin:0 0 0 6px;padd
 
 /* The two agents */
 .duel{display:grid;grid-template-columns:1fr 112px 1fr;align-items:stretch;gap:0;margin-bottom:14px}
-.agent{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;transition:box-shadow .25s,border-color .25s}
+.agent{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 2px rgb(80 60 20 / .05),0 4px 14px rgb(80 60 20 / .04);padding:14px 16px;display:flex;flex-direction:column;gap:8px;transition:box-shadow .25s,border-color .25s}
 .agent.turn{box-shadow:0 0 0 3px var(--blue-w);border-color:var(--blue-s)}.agent.shop.turn{box-shadow:0 0 0 3px var(--shop-w);border-color:var(--shop-s)}
 .who{display:flex;align-items:center;gap:11px}
 .av{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;color:#fff;flex:none;background:linear-gradient(135deg,#4f7bff,#2f5be7)}
@@ -41,7 +41,7 @@ header h1{font-size:15px;font-weight:600;color:var(--ink2);margin:0 0 0 6px;padd
 @keyframes flow{to{left:100%}}
 
 /* Price track */
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 2px rgb(80 60 20 / .05),0 4px 14px rgb(80 60 20 / .04);padding:16px 18px;margin-bottom:14px}
 .card h2{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0 0 4px}
 .gap{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
 .gap b{font-size:20px;letter-spacing:-.02em}

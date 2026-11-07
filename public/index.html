@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f5f6f8;--card:#fff;--line:#e6e8ec;--line2:#d0d5dd;--ink:#101828;--ink2:#344054;--mut:#667085;--faint:#98a2b3;
+:root{--bg:#f3eee3;--card:#fffdf8;--line:#e8dfcc;--line2:#d6c9b0;--ink:#101828;--ink2:#3a3730;--mut:#6b6455;--faint:#a39a87;--shadow:0 1px 2px rgb(80 60 20 / .05),0 4px 14px rgb(80 60 20 / .04);
   --blue:#2f5be7;--blue-h:#2449c9;--blue-w:#eef2fe;--blue-s:#a9bdf6;--green:#15803d;--green-w:#e8f6ed;--amber:#b54708;--amber-w:#fef4e6;--red:#d92d20;--red-w:#fef0ee;
   --paper:#f3eee3;--sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
@@ -14,13 +14,13 @@ a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline;text-
 :focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:4px}
 h1,h2,h3{margin:0;letter-spacing:-.01em}
 
-button{font:600 13.5px/1 var(--sans);padding:10px 14px;border-radius:6px;border:1px solid var(--blue);background:var(--blue);color:#fff;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,box-shadow .15s}
+button{font:600 13.5px/1 var(--sans);padding:10px 14px;border-radius:8px;border:1px solid var(--blue);background:var(--blue);color:#fff;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,box-shadow .15s}
 button:hover:not(:disabled){background:var(--blue-h);border-color:var(--blue-h)}button:disabled{background:var(--blue-s);border-color:var(--blue-s);cursor:default}
-button.ghost{background:#fff;color:var(--ink2);border-color:var(--line2)}button.ghost:hover:not(:disabled){background:var(--bg);border-color:var(--faint)}button.ghost:disabled{color:var(--faint);background:#fff;border-color:var(--line)}
+button.ghost{background:var(--card);color:var(--ink2);border-color:var(--line2)}button.ghost:hover:not(:disabled){background:var(--bg);border-color:var(--faint)}button.ghost:disabled{color:var(--faint);background:var(--card);border-color:var(--line)}
 button.small{padding:6px 10px;font-size:12.5px;font-weight:500}
 .link,.textbtn{background:none;border:0;color:var(--mut);padding:4px 2px;font:500 13px var(--sans)}.link:hover:not(:disabled),.textbtn:hover:not(:disabled){background:none;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
 .textbtn{color:var(--blue);padding:0}.textbtn:hover:not(:disabled){color:var(--blue-h)}.textbtn:disabled{background:none;color:var(--mut)}
-textarea,input[type=number],input[type=text],select{font:14px/1.5 var(--sans);color:var(--ink);background:#fff;border:1px solid var(--line2);border-radius:6px;padding:8px 10px}
+textarea,input[type=number],input[type=text],select{font:14px/1.5 var(--sans);color:var(--ink);background:var(--card);border:1px solid var(--line2);border-radius:6px;padding:8px 10px}
 textarea{width:100%;min-height:84px;resize:vertical}input[type=number]{width:130px}
 textarea:focus,input:focus,select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-w)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
@@ -43,25 +43,30 @@ body.landing{background:var(--paper)}
 .lhero .sub{font-size:15.5px;color:var(--mut);margin:0 auto 26px;max-width:46ch}
 .promptbox{max-width:600px;margin:0 auto;text-align:left;background:color-mix(in srgb,#fff 72%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid rgb(255 255 255 / .9);border-radius:20px;padding:14px 14px 12px 18px;box-shadow:0 10px 40px rgb(80 60 20 / .10),0 0 0 1px rgb(120 100 60 / .08)}
 .promptbox:focus-within{box-shadow:0 10px 40px rgb(80 60 20 / .12),0 0 0 3px var(--blue-w),0 0 0 1px var(--blue)}
-.promptbox textarea{border:0;background:transparent;padding:4px 0;min-height:76px;font-size:15.5px;font-weight:500;color:var(--blue);resize:none;box-shadow:none}
-.promptbox textarea::placeholder{color:color-mix(in srgb,var(--blue) 55%,#fff)}
+.promptbox textarea{border:0;background:transparent;padding:4px 0;min-height:64px;font-size:15.5px;font-weight:500;color:var(--ink);resize:none;box-shadow:none}
+.promptbox textarea::placeholder{color:var(--faint)}
 .promptbox .row{justify-content:space-between;margin-top:6px}.promptbox .hint{font-size:12px;color:var(--mut)}
-.promptbox button{border-radius:999px;padding:11px 20px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.promptbox button{border-radius:999px;padding:11px 20px;font-size:14px;font-weight:600}
+.lnav .right button{border-radius:999px;padding:10px 18px}
 .examples{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:760px;margin:18px auto 0}
-.examples button{display:inline-flex;align-items:center;gap:6px;background:rgb(40 44 52 / .78);border:0;color:#fff;font-size:11.5px;font-weight:500;padding:7px 12px;border-radius:999px;white-space:normal;text-align:left;backdrop-filter:blur(4px)}
-.examples button:hover:not(:disabled){background:rgb(20 24 32 / .9)}
+.examples button{display:inline-flex;align-items:center;gap:6px;background:rgb(255 255 255 / .55);border:1px solid var(--line2);color:var(--ink2);font-size:12px;font-weight:500;padding:7px 13px;border-radius:999px;white-space:normal;text-align:left;backdrop-filter:blur(4px)}
+.examples button .ico{color:var(--blue)}
+.examples button:hover:not(:disabled){background:var(--card);border-color:var(--faint);color:var(--ink)}
 .fine{font-size:12px;color:var(--mut);margin:22px auto 0;max-width:56ch}
+.trust{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 18px;margin:14px auto 0;max-width:860px;font-size:12px;color:var(--mut)}
+.trust span{display:inline-flex;align-items:center;gap:6px}.trust span::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--blue-s)}
+.trust b{color:var(--ink);font-weight:600}
 .scene{position:relative;z-index:1;display:block;width:100%;height:auto;margin-top:-20px;pointer-events:none}
 .lfoot{background:#e7dcc6;height:28px}
 
 .app{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100vh}
-.side{background:var(--card);border-right:1px solid var(--line);padding:22px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:auto}
+.side{background:color-mix(in srgb,var(--card) 70%,var(--bg));border-right:1px solid var(--line);padding:22px 14px 16px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:auto}
 .side .logo{padding:0 8px 22px}
 .nav{display:flex;flex-direction:column;gap:2px}
 .nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;color:var(--ink2);font-weight:500;font-size:14px;text-decoration:none}
 .nav a:hover{background:var(--bg);text-decoration:none}.nav a.on{background:var(--blue-w);color:var(--blue)}.nav a .ico{color:var(--mut)}.nav a.on .ico{color:var(--blue)}
 .cards{margin-top:auto;display:flex;flex-direction:column;gap:12px;padding-top:24px}
-.mini{border:1px solid var(--line);border-radius:8px;padding:12px;font-size:12.5px;background:var(--card)}
+.mini{border:1px solid var(--line);border-radius:10px;padding:12px;font-size:12.5px;background:var(--card)}
 .mini .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
 .mini .lb{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);line-height:1.4}
 .mini .auth{font-size:11.5px;font-weight:600;color:var(--green);text-align:right;line-height:1.3}
@@ -78,14 +83,14 @@ img.avatar{object-fit:cover;background:var(--bg)}.who-mini{display:inline-flex;a
 .bal{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.bal span{font-size:12px;font-weight:600;color:var(--ink2);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:2px 7px}
 .side .reset{align-self:flex-start;margin:10px 0 0 4px;font-size:12px}
 .work{min-width:0;display:flex;flex-direction:column}
-.work-head{background:var(--card);border-bottom:1px solid var(--line);padding:16px 32px;min-height:64px;display:flex;align-items:center;gap:16px}
-.work-head h1{font-size:16px;font-weight:600}.work-head p{margin:2px 0 0;font-size:12.5px;color:var(--mut)}
+.work-head{background:color-mix(in srgb,var(--card) 70%,var(--bg));border-bottom:1px solid var(--line);padding:16px 32px;min-height:64px;display:flex;align-items:center;gap:16px}
+.work-head h1{font-size:19px;font-weight:700;letter-spacing:-.015em}.work-head p{margin:2px 0 0;font-size:12.5px;color:var(--mut)}
 .work-head .status{margin-left:auto;display:flex;align-items:center;gap:8px}
 .work-body{padding:32px 32px 72px;max-width:900px;width:100%}
 .title{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0 0 6px}
 .lead{color:var(--mut);margin:0 0 24px;max-width:66ch}
 
-.sec{background:var(--card);border:1px solid var(--line);border-radius:8px;margin-bottom:14px;overflow:hidden}
+.sec{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden}
 .sec-h{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
 .sec-h b{font-size:15px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--ink)}
 .sec-h a,.sec-h .textbtn{font-size:12.5px;letter-spacing:0;text-transform:none;font-weight:500}
@@ -99,7 +104,7 @@ img.avatar{object-fit:cover;background:var(--bg)}.who-mini{display:inline-flex;a
 
 .setup{list-style:none;margin:0;padding:0}
 .setup li{display:grid;grid-template-columns:28px 1fr;gap:12px;padding:14px 16px;border-top:1px solid var(--line)}.setup li:first-child{border-top:0}
-.setup .ic{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:12px;border:1.5px solid var(--line2);color:var(--faint);background:#fff}
+.setup .ic{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:12px;border:1.5px solid var(--line2);color:var(--faint);background:var(--card)}
 .setup .done .ic{background:var(--green);border-color:var(--green);color:#fff}.setup .now .ic{border-color:var(--blue);color:var(--blue);box-shadow:0 0 0 3px var(--blue-w)}
 .setup b{font-weight:600;font-size:14px}.setup .todo b{color:var(--faint)}
 .setup .body{font-size:13px;color:var(--mut);margin-top:2px}.setup .done .body{color:var(--green)}
@@ -156,10 +161,10 @@ a.lrow:hover{border-color:var(--line2);text-decoration:none;box-shadow:0 1px 2px
 .otitle{display:flex;align-items:flex-start;gap:12px}.otitle .pill{margin-left:auto;margin-top:6px}
 .ometa{font-size:12.5px;color:var(--mut);margin:2px 0 20px}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
-.actions a.btnlike{display:inline-flex;align-items:center;font:600 13.5px var(--sans);padding:10px 14px;border-radius:6px;border:1px solid var(--line2);background:#fff;color:var(--ink2);text-decoration:none}.actions a.btnlike:hover{background:var(--bg)}
+.actions a.btnlike{display:inline-flex;align-items:center;font:600 13.5px var(--sans);padding:10px 14px;border-radius:6px;border:1px solid var(--line2);background:var(--card);color:var(--ink2);text-decoration:none}.actions a.btnlike:hover{background:var(--bg)}
 .box{border-radius:6px;padding:12px 14px}.box.ok{background:var(--green-w);color:var(--green)}
 
-dialog{border:0;border-radius:12px;padding:0;max-width:560px;width:calc(100% - 32px);background:#fff;color:var(--ink);box-shadow:0 24px 64px rgb(16 24 40 / .22)}
+dialog{border:0;border-radius:12px;padding:0;max-width:560px;width:calc(100% - 32px);background:var(--card);color:var(--ink);box-shadow:0 24px 64px rgb(16 24 40 / .22)}
 dialog::backdrop{background:rgb(16 24 40 / .45)}dialog[open]{animation:rise .22s ease-out}@keyframes rise{from{opacity:0;transform:translateY(8px)}}
 .dlg{padding:22px 24px}.dlg h2{font-size:18px;font-weight:700}.dlg .x{float:right;background:none;border:0;color:var(--mut);font-size:22px;line-height:1;padding:2px 6px}.dlg .x:hover{background:var(--bg);color:var(--ink)}
 .dlg table{margin-top:14px}
@@ -189,8 +194,8 @@ button.nego{display:flex;align-items:center;justify-content:center;gap:8px;width
 @media(max-width:780px){
   .app{display:flex;flex-direction:column}
   .side{display:contents}
-  .side .logo{order:0;background:#fff;padding:14px 16px 6px}
-  .nav{order:0;flex-direction:row;overflow-x:auto;background:#fff;padding:4px 12px 10px;border-bottom:1px solid var(--line);gap:4px}
+  .side .logo{order:0;background:var(--card);padding:14px 16px 6px}
+  .nav{order:0;flex-direction:row;overflow-x:auto;background:var(--card);padding:4px 12px 10px;border-bottom:1px solid var(--line);gap:4px}
   .nav a{white-space:nowrap;padding:7px 10px;font-size:13px}
   .work{order:1}.cards{order:3;padding:16px;margin:0}.side .reset{order:4;margin:0 0 24px 16px}
   .work-head{padding:12px 16px}.work-body{padding:20px 16px 40px}
@@ -210,7 +215,9 @@ const ttl = (t, pre = "") => t ? `<span class="ttl${t - Date.now() < 86400_000 ?
 const clock = (t) => { const s = Math.max(0, Math.ceil((t - Date.now()) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 const json = async (url, body) => { const r = await fetch(url, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw Object.assign(new Error(j.error ?? `HTTP ${r.status}`), { status: r.status, body: j }); return j; };
 const HS = "https://hashscan.io/testnet/transaction/";
-const txLink = (t) => !t ? "-" : /^SIM/.test(t) ? `<span class="mono">${esc(t)}</span>` : /^schedule:/.test(t) ? `<span class="mono">${esc(t)}</span>` : `<a class="mono" href="${HS}${encodeURIComponent(String(t).replace("@", "-").replace(/\.(\d+)$/, "-$1"))}" target="_blank" rel="noopener">${esc(t)} ↗</a>`;
+// 0.0.9185802@1794008367.408549417 → 0.0.9185802@…549417 (the full ID stays in the link and the tooltip).
+const shortTx = (t) => { const m = String(t).match(/^(\d+\.\d+\.\d+)@(.+)$/); return m ? `${m[1]}@…${m[2].slice(-6)}` : String(t); };
+const txLink = (t) => !t ? "-" : /^SIM/.test(t) ? `<span class="mono">${esc(t)}</span>` : /^schedule:/.test(t) ? `<span class="mono">${esc(t)}</span>` : `<a class="mono" href="${HS}${encodeURIComponent(String(t).replace("@", "-").replace(/\.(\d+)$/, "-$1"))}" target="_blank" rel="noopener" title="${esc(t)}">${esc(shortTx(t))} ↗</a>`;
 const EXAMPLES = ["Find me a gaming PC with a 4K monitor, within 4,000 USDC.", "A 1440p gaming PC for GTA 6 at 60 FPS, budget 1,500 USDC.", "Gaming and streaming PC with a keyboard and mouse, new parts only, 2,500 USDC."];
 const EX_LABEL = ["4K gaming + monitor, 4,000 USDC", "1440p for GTA 6 at 60 FPS, 1,500 USDC", "Gaming + streaming with peripherals, 2,500 USDC"];
 
@@ -265,7 +272,7 @@ function renderAccount() {
   const u = AUTH?.user;
   const wal = walletOk(), acct = isHP() ? hpAcct() : (STATUS?.userId ?? WAL.userId), bal = STATUS?.wallet?.balance, hbar = asset.symbol === "HBAR" ? null : STATUS?.wallet?.hbarForFees;
   box.innerHTML = `<div class="acct">${avatar(u)}<div style="min-width:0;flex:1"><b>${esc(u?.name ?? "Not signed in")}</b><span class="via">${u?.email ? esc(u.email) : "via Google"}</span></div></div>
-    <hr><div class="wline">${svg(I.wallet, 15)}${wal && acct ? `<b class="mono">${esc(short(acct))}</b><button class="link" id="wDisc">Disconnect</button>` : `<span class="mut">No wallet connected</span>`}</div>
+    <hr><div class="wline">${svg(I.wallet, 15)}${wal && acct ? `<b class="mono">${esc(short(acct))}</b><button class="link" id="wDisc">Disconnect</button>` : `<span class="mut" title="Your approved budget is on Hedera and still applies. Connect HashPack to see balances or revoke from this browser.">HashPack not connected</span>`}</div>
     ${wal && bal != null ? `<div class="bal"><span>${units(bal)}</span>${hbar != null ? `<span>${(Number(hbar) / 1e8).toFixed(2)} HBAR</span>` : ""}</div><div class="mut" style="font-size:11.5px;margin-top:4px">Testnet. The agent's data fees are paid in ${esc(asset.symbol)}.</div>` : ""}
     <div class="row" style="margin-top:6px"><button class="link" id="logout" style="padding:0;font-size:12px">Log out</button></div>`;
   $("logout").onclick = logout;
@@ -327,6 +334,7 @@ function landing() {
       <div class="row"><span class="hint">Only your budget is required. Anything else gets a stated default.</span><button id="build">Build my PC</button></div></div>
     <div class="examples" aria-label="Example requests">${EX_LABEL.map((e, i) => `<button data-ex="${i}">${svg(I.sparkle, 13)}${esc(e)}</button>`).join("")}</div>
     <p class="fine">The recommendation fee is paid with x402 on Hedera, in USDC.</p>
+    <div class="trust" aria-label="Built on"><span>Pays on <b>Hedera</b></span><span>Listings on <b>Arkiv</b></span><span>Humans via <b>World ID</b></span><span>Agents talk <b>A2A</b></span></div>
   </main>${SCENE}<div class="lfoot"></div>`;
   renderLogin();
   const keep = () => { S.text = $("prompt").value; save(); };
