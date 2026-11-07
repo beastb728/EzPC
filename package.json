@@ -35,5 +35,8 @@
     "zod": "^4.6.7"
   },
   "type": "module",
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  }
 }

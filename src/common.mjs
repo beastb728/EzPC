@@ -1,5 +1,6 @@
 import express from "express";
-export const PORTS = { web: 4000, fac: 4020, sellers: 4100, guard: 4200, agent: 4300 };
+// Hosts (Render, Railway, …) set PORT for the public web app; the other services stay internal.
+export const PORTS = { web: Number(process.env.PORT) || 4000, fac: 4020, sellers: 4100, guard: 4200, agent: 4300 };
 export const url = (s, p = "") => `http://127.0.0.1:${PORTS[s]}${p}`;
 export const NETWORK = "hedera:testnet";
 export const HBAR = 100_000_000n;
@@ -33,4 +34,6 @@ export async function get(u, token) {
   const r = await fetch(u, { headers: token ? { "x-service-token": token } : {} });
   return { status: r.status, body: await r.json().catch(() => ({})) };
 }
-export const listen = (a, port, name) => a.listen(port, "127.0.0.1", () => console.log(`[${name}] listening on ${port}`));
+// Only the web app is ever public, and only when a host sets PORT; everything else listens on loopback.
+const host = (name) => name === "dashboard" && process.env.PORT ? "0.0.0.0" : "127.0.0.1";
+export const listen = (a, port, name) => a.listen(port, host(name), () => console.log(`[${name}] listening on ${host(name)}:${port}`));
