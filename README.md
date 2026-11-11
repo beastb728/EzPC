@@ -1,24 +1,33 @@
 <div align="center">
 
-<img src="assets/ethpc-logo.png" alt="EzPC logo" width="120" />
+<img src="docs/banner.png" alt="EzPC: the PC agent that shops for you, and never oversteps" width="100%" />
 
-# EzPC
+<br /><br />
 
-**The PC agent that shops for you, and never oversteps.**
+[![License](https://img.shields.io/badge/license-MIT-2f5be8?style=for-the-badge)](LICENSE)
+![Tests](https://img.shields.io/badge/tests-129_passing-1a7f4b?style=for-the-badge)
+![Built at](https://img.shields.io/badge/built_at-ETHGlobal_Mumbai_2026-6f3ff5?style=for-the-badge)
 
-An AI agent that plans a gaming PC, negotiates and pays for its own data with x402 on Hedera,
-and can only ever spend the allowance you approve.
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express_5-000000?style=flat-square&logo=express&logoColor=white)
+![Hedera](https://img.shields.io/badge/Hedera-222222?style=flat-square&logo=hedera&logoColor=white)
+![x402](https://img.shields.io/badge/x402-USDC_payments-2775CA?style=flat-square)
+![A2A](https://img.shields.io/badge/A2A-agent_to_agent-ff6b35?style=flat-square)
+![MCP](https://img.shields.io/badge/MCP-server-7c3aed?style=flat-square)
+![World ID](https://img.shields.io/badge/World_ID-human_checks-111111?style=flat-square)
+![Arkiv](https://img.shields.io/badge/Arkiv-listings_and_reviews-0e7fa8?style=flat-square)
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Node.js](https://img.shields.io/badge/node-%E2%89%A5%2022.9-339933?logo=node.js&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-129%20passing-brightgreen)
-![Built at](https://img.shields.io/badge/built%20at-ETHGlobal%20Mumbai%202026-6f3ff5)
+**[Demo](#demo)** &nbsp;·&nbsp; **[Screenshots](#screenshots)** &nbsp;·&nbsp; **[How it works](#how-it-works)** &nbsp;·&nbsp; **[Quick start](#quick-start)** &nbsp;·&nbsp; **[Architecture](#architecture)** &nbsp;·&nbsp; **[Team](#team)**
 
-[Screenshots](#screenshots) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Architecture](#architecture) · [Team](#team)
+</div>
 
-<br />
+## Demo
 
-<img src="docs/screenshots/01-landing.png" alt="EzPC landing page: describe the PC you want and your budget" width="900" />
+<div align="center">
+
+<img src="docs/demo.gif" alt="Walkthrough: describe a PC, approve an allowance, the agent pays and negotiates, then checkout and audit" width="860" />
+
+<sub>From a one-line request to a negotiated deal, with every step on the audit trail. Recorded in simulated mode.</sub>
 
 </div>
 
@@ -38,13 +47,50 @@ The agent has no wallet and no keys. It can only ask a separate **Guard** servic
 
 ## Highlights
 
-- **Spending you can cap and revoke.** One allowance, enforced by Hedera itself. Revoking it is a single transaction.
-- **An agent with no keys.** Only the Guard can sign, and it runs a fixed list of checks that fail closed before any payment.
-- **AI-to-AI negotiation.** Buyer and seller agents bargain over A2A, both for the data fee and for the PC. Each seller's lowest price is enforced in code, never by the model.
-- **A public audit trail.** Every payment, block, refund and approval is a message on an HCS topic, verifiable from public data alone.
-- **Humans at the checkpoints.** Payments above your "ask me" amount pause until you pass a fresh World ID check and sign in your wallet.
-- **Usable from Claude.** An MCP server lets Claude act as the buyer agent through the same Guard.
-- **Runs offline.** With no credentials, every external service falls back to a labelled simulated mode, so the app and its 129 tests run on a fresh clone.
+<table>
+<tr>
+<td width="33%" valign="top">
+
+### 🔒 Capped spending
+One allowance, enforced by Hedera itself. Revoking it is a single transaction.
+
+</td>
+<td width="33%" valign="top">
+
+### 🗝️ An agent with no keys
+Only the Guard can sign, and its checks fail closed before any payment.
+
+</td>
+<td width="33%" valign="top">
+
+### 🤝 AI-to-AI negotiation
+Buyer and seller agents bargain over A2A. Each seller's lowest price is enforced in code.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 📜 Public audit trail
+Every payment, block, refund and approval is a message on an HCS topic.
+
+</td>
+<td valign="top">
+
+### 🧑 Humans at the checkpoints
+Larger payments pause until you pass a World ID check and sign in your wallet.
+
+</td>
+<td valign="top">
+
+### 🧩 Usable from Claude
+An MCP server lets Claude act as the buyer agent through the same Guard.
+
+</td>
+</tr>
+</table>
+
+With no credentials, every external service falls back to a labelled simulated mode, so the app and its 129 tests run on a fresh clone.
 
 ## Screenshots
 
@@ -60,7 +106,7 @@ Captured from the app running locally in simulated mode (no keys or testnet acco
 
 **7. Everything is audited**
 
-<img src="docs/screenshots/08-audit.png" alt="Audit log listing every Guard decision" width="800" />
+<img src="docs/screenshots/08-audit.png" alt="Audit log listing every Guard decision" width="720" />
 
 </div>
 
@@ -361,12 +407,16 @@ The earlier general tools (`request_intent`, `get_intent`, `find_sellers`, `buy`
 
 ## Team
 
-Built together at ETHGlobal Mumbai by:
+Built together at ETHGlobal Mumbai.
 
-- **Prayag Vijay** ([@prayagvijay](https://github.com/prayagvijay))
-- **Ayush Raj** ([@ayush9886](https://github.com/ayush9886))
-- **Priyanka Anand** ([@priyyanka-24](https://github.com/priyyanka-24))
-- **Ishaan Singh** ([@beastb728](https://github.com/beastb728))
+<table>
+<tr>
+<td align="center" width="25%"><a href="https://github.com/prayagvijay"><img src="https://github.com/prayagvijay.png?size=160" width="96" alt="Prayag Vijay" /><br /><b>Prayag Vijay</b><br /><sub>@prayagvijay</sub></a></td>
+<td align="center" width="25%"><a href="https://github.com/ayush9886"><img src="https://github.com/ayush9886.png?size=160" width="96" alt="Ayush Raj" /><br /><b>Ayush Raj</b><br /><sub>@ayush9886</sub></a></td>
+<td align="center" width="25%"><a href="https://github.com/priyyanka-24"><img src="https://github.com/priyyanka-24.png?size=160" width="96" alt="Priyanka Anand" /><br /><b>Priyanka Anand</b><br /><sub>@priyyanka-24</sub></a></td>
+<td align="center" width="25%"><a href="https://github.com/beastb728"><img src="https://github.com/beastb728.png?size=160" width="96" alt="Ishaan Singh" /><br /><b>Ishaan Singh</b><br /><sub>@beastb728</sub></a></td>
+</tr>
+</table>
 
 This repository is a fork of the team's original at [prayagvijay/EzPC](https://github.com/prayagvijay/EzPC).
 
@@ -375,3 +425,9 @@ The project was called EthPC until late in the hackathon, so the Arkiv schema na
 ## License
 
 [MIT](LICENSE)
+
+<div align="center">
+
+<sub><a href="#demo">Back to top ↑</a></sub>
+
+</div>
