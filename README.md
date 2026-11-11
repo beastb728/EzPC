@@ -364,7 +364,8 @@ The earlier general tools (`request_intent`, `get_intent`, `find_sellers`, `buy`
 Built together at ETHGlobal Mumbai by:
 
 - **Prayag Vijay** ([@prayagvijay](https://github.com/prayagvijay))
-- **Ayush Raj**
+- **Ayush Raj** ([@ayush9886](https://github.com/ayush9886))
+- **Priyanka Anand** ([@priyyanka-24](https://github.com/priyyanka-24))
 - **Ishaan Singh** ([@beastb728](https://github.com/beastb728))
 
 This repository is a fork of the team's original at [prayagvijay/EzPC](https://github.com/prayagvijay/EzPC).
